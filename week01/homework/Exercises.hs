@@ -35,8 +35,8 @@ In some languages, the syntax for defining a function and its arguments looks
 something like f(x, y). Not so in Haskell! Do not wrap the arguments as a whole
 in parentheses, and separate them with spaces instead of commas.
 -}
--- f :: Int -> Int -> Int
--- f (x y) = x + y
+f :: Int -> Int -> Int
+f x y = x + y
 
 {-
 However, if a particular argument involves a pattern that itself has multiple
@@ -44,17 +44,17 @@ components, such as x : xs, the compiler may have trouble determining if we mean
 (f x) : xs or f (x : xs). To avoid this confusion, multi-part arguments like this
 need to be wrapped in parentheses.
 -}
--- g :: Int -> [Int] -> Int
--- g n [] = n
--- g n x : xs = n + x
+g :: Int -> [Int] -> Int
+g n [] = n
+g n (x : xs) = n + x
 
 {-
 Analogous principles apply when using a function. Don't wrap the arguments as
 a whole in parentheses, but do wrap individual arguments in parentheses as
 needed. Add and remove parentheses below to make the result 7.
 -}
--- result :: Int
--- result = g f (1 2) [4, 5] ++ [6, 7]
+result :: Int
+result = g (f 1 2) ([4, 5] ++ [6, 7])
 
 {-
 Exercises 1–6: Validating Credit Card Numbers
@@ -117,10 +117,10 @@ For this exercise, use them as infix operators.
 -}
 
 lastDigit :: Int -> Int
-lastDigit = error "unimplemented"
+lastDigit x = x `mod` 10
 
 dropLastDigit :: Int -> Int
-dropLastDigit = error "unimplemented"
+dropLastDigit x = x `div` 10
 
 {-
 Here, we have some tests written using Haskell's unit testing library. For
@@ -147,7 +147,9 @@ Hint: use guards.
 -}
 
 toRevDigits :: Int -> [Int]
-toRevDigits = error "unimplemented"
+toRevDigits x
+  | x <= 0 = []
+  | otherwise = lastDigit x : toRevDigits (dropLastDigit x)
 
 exercise2 :: Test
 exercise2 =
@@ -164,7 +166,8 @@ Fill in the function below:
 -}
 
 doubleEveryOther :: [Int] -> [Int]
-doubleEveryOther = error "unimplemented"
+doubleEveryOther (x : y : xs) = x : (y * 2) : doubleEveryOther xs
+doubleEveryOther x = x
 
 exercise3 :: Test
 exercise3 =
@@ -192,8 +195,13 @@ Your solution should NOT use foldr.
 Fill in the function below.
 -}
 
+sum :: [Int] -> Int
+sum [] = 0
+sum (x : xs) = x + sum xs
+
 sumDigits :: [Int] -> Int
-sumDigits = error "unimplemented"
+sumDigits [] = 0
+sumDigits (x : xs) = sum (toRevDigits x) + sumDigits xs
 
 exercise4 :: Test
 exercise4 =
@@ -219,7 +227,7 @@ previous exercises.
 -}
 
 validate :: Int -> Bool
-validate = error "unimplemented"
+validate x = lastDigit (sumDigits (doubleEveryOther (toRevDigits x))) == 0
 
 exercise5 :: Test
 exercise5 =
@@ -237,10 +245,10 @@ we have covered so far.
 -}
 
 time :: Double
-time = error "unimplemented"
+time = 0.5
 
 question :: String
-question = error "unimplemented"
+question = "Why are functions named with `div` instead of just the regular divide symbol /?"
 
 exercise6 :: Test
 exercise6 =
