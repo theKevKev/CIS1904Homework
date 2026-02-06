@@ -3,6 +3,7 @@
 {-# HLINT ignore "Use infix" #-}
 module Exercises where
 
+import Data.Bool (Bool)
 import Data.List
 import Test.HUnit
   ( Test (..),
@@ -30,8 +31,8 @@ take i xs = undefined
 prop_prefix :: Int -> [Int] -> Bool
 prop_prefix i xs = isPrefixOf (Data.List.take i xs) xs
 
-sort :: [Int] -> [Int]
-sort xs = undefined
+-- sort :: [Int] -> [Int]
+-- sort xs = Data.List.sort
 
 {- Note: you do not need to implement the undefined functions; just write tests. -}
 {- Describe, in English, two properties that should hold of the below sort
@@ -55,6 +56,10 @@ parse = undefined
 
 prettyPrint :: Int -> String
 prettyPrint = undefined
+
+prop_cycle :: Int -> Bool
+
+prop_cycle
 
 {- Suppose we are implementing sets via the Haskell List type
    and want to make sure our library functions preserve a
@@ -84,3 +89,9 @@ sortBad (p : xs) = sortBad lesser ++ [p] ++ sortBad greater
   where
     lesser = filter (< p) xs
     greater = filter (> p) xs
+
+prop_ordered :: [Int] -> Bool
+prop_ordered xs = ordered (sortBad xs)
+
+prop_elements :: [Int] -> Bool
+prop_elements xs = sameElements (sortBad xs) xs

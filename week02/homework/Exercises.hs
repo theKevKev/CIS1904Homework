@@ -1,5 +1,6 @@
 module Exercises where
 
+import Data.List (isSubsequenceOf, product)
 import Test.HUnit
   ( Test (..),
     Testable (..),
@@ -21,16 +22,31 @@ You are being graded on content, not grammar, so bullet points are ok.
 
 0a. A function that reverses a list
 
-FILL IN HERE
+\* The function should return the same list but with every element in the opposite position of what it was before
+\* no error inputs unless the list is not a list but that's a compile check.
+\* some properties include:
+  * every element being in the returned list (with the same count)
+  * each element is in the opposite position of the array in the returned list
+  * returned list is the same length
+\* some base cases include:
+  * empty list returns empty list
+  * singleton list returns the same singleton list
 
 0b. A function that inserts an integer into a list of integers at a given
     natural number index
 
-FILL IN HERE
+\* should throw an error if the index would place the integer beyond the possible indices (0 to N)
+\* should error if index is not a natural number
+\* it should keep all integers before that index unchanged and all integers after that index should be increased by one index
+\* that inserted integer should be at that index
+\* the list should have it's length larger by exactly 1
 
 0c. A function that factors an integer into its prime factors
 
-FILL IN HERE
+\* should return a list of prime factors (integers)
+\* there may be duplicates of the prime factors if that integer has multiplicity of that factor greater than 1
+\* negative inputs should be handled appropriately with just the factors of it's aboslute value
+\* prime numbers should just return a list of that prime, 1 as well.
 
 -}
 
@@ -52,6 +68,16 @@ list reverse function below. -}
 listReverse :: [Int] -> [Int]
 listReverse xs = undefined
 
+test_empty_list :: Test
+test_empty_list = "empty_list" ~: [] ~?= listReverse []
+
+listLength :: [Int] -> Int
+listLength [] = 0
+listLength (x : xs) = 1 + listLength xs
+
+prop_same_length :: [Int] -> Bool
+prop_same_length xs = listLength xs == listLength (listReverse xs)
+
 {- Exercise 2
 Write either:
 a) one property-based test and two unit tests
@@ -71,6 +97,12 @@ that we now need to test for.
 listInsert :: [Int] -> Int -> Int -> [Int]
 listInsert xs x i = undefined
 
+prop_negative_index :: [Int] -> Int -> Int -> Property
+prop_negative_index xs x i = i < 0 ==> length (listInsert xs x i) == length xs
+
+prop_same_elements :: [Int] -> Int -> Int -> Bool
+prop_same_elements xs x i = isSubsequenceOf xs (listInsert xs x i)
+
 {- Exercise 3
 To specify the prime factorization function below, either
 a) write one property-based test and two unit tests
@@ -82,6 +114,24 @@ For this exercise only, you may import and use `product` from Data.List.
 primeFactors :: Int -> [Int]
 primeFactors x = undefined
 
+prop_factors_multiply_to_number :: Int -> Bool
+prop_factors_multiply_to_number x = product (primeFactors x) == x
+
+test_first_ten_numbers :: Test
+test_first_ten_numbers =
+  "first ten"
+    ~: [ "one" ~: [1] ~?= primeFactors 1,
+         "two" ~: [2] ~?= primeFactors 2,
+         "three" ~: [3] ~?= primeFactors 3,
+         "four" ~: [2, 2] ~?= primeFactors 4,
+         "five" ~: [5] ~?= primeFactors 5,
+         "six" ~: [2, 3] ~?= primeFactors 6,
+         "seven" ~: [7] ~?= primeFactors 7,
+         "eight" ~: [2, 2, 2] ~?= primeFactors 8,
+         "nine" ~: [3, 3] ~?= primeFactors 9,
+         "ten" ~: [2, 5] ~?= primeFactors 10
+       ]
+
 {-
 Write down the number of hours it took you to complete this homework. Please
 also write one question or comment about any of the material we have covered so
@@ -89,7 +139,7 @@ far.
 -}
 
 time :: Double
-time = error "unimplemented"
+time = 1.5
 
 question :: String
-question = error "unimplemented"
+question = "How do I process runtime errors in test cases? I ended up making all my functions have non-crashing behavior for incorrect inputs but I'd like to also allow runtime errors too?"
