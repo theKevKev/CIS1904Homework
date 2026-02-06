@@ -30,8 +30,8 @@ HUnit is Haskell's primary unit testing library, modelled after Java's JUnit.
 HUnit contains a datatype called
 [`Test`](https://hackage.haskell.org/package/HUnit-1.6.2.0/docs/Test-HUnit-Base.html#t:Test).
 
-We will talk more about datatypes next
-week, but for now, let's look at an example of a `Test` from the previous homework.
+We will talk more about datatypes next week
+but for now, let's look at an example of a `Test` from the previous homework.
 
 ```Haskell
 exercise2 :: Test
@@ -47,13 +47,18 @@ In the example above, `toRevDigits 1234 ~?= [4, 3, 2, 1]` and
 The `~?=` operator takes
 two elements of a type, an "actual value" on the left and an "expected value"
 on the right, and makes a test comparing the two. The `~:` operator can, among
-other things, take
-a `String` label and either a single `Test` or a list of `Test`s and output a labelled `Test`. (While not
+other things, take a `String` label and either a single `Test` or a list of
+`Test`s and output a labelled `Test`. (While not
 strictly necessary for writing tests, we highly recommend labels to keep test
 output readable.)
 
-How can such distinct looking terms all be `Test`s? The full answer will have to wait until we've learned about algebraic datatypes and typeclasses, but for now, we can think of a `Test` in two ways. Under the hood, a `Test` is a tree whose leaves are test cases (of type `Assertion`) with optional labels at each node. Practically speaking, we can think of a `Test` as the basic unit that we can run
-in the terminal and get a failure report for, and we can think of each term of the form `x ~?= y` as corresponding to one test case.
+How can such distinct looking terms all be `Test`s? The full answer will have
+to wait until we've learned about algebraic datatypes and typeclasses, but for
+now, we can think of a `Test` in two ways. Under the hood, a `Test` is a tree
+whose leaves are test cases (of type `Assertion`) with optional labels at each
+node. Practically speaking, we can think of a `Test` as the basic unit that we
+can run in the terminal and get a failure report for, and we can think of each
+term of the form `x ~?= y` as corresponding to one test case.
 
 How do we do these tests? With the HUnit
 function `runTestTT`.
@@ -80,7 +85,8 @@ An error indicates that an exception was raised. A failure indicates
 that a given test case simply did not pass, for example, if an actual
 value and the corresponding expected value were not equal.
 
-In the case of failure, the results will give further information, for example, something like this:
+In the case of failure, the results will give further information, for example,
+something like this:
 
 ```
 ### Failure in: 0:example1:zero
@@ -116,10 +122,16 @@ REPL instead of `runTestTT <test name>`.
 HUnit provides tooling for _unit testing_, i.e., tests that look at
 how a function behaves on specific example inputs.
 It turns out that Haskell is actually ideal for another form of testing:
-_property-based testing_ (PBT). PBT originated with the
-Haskell library [QuickCheck](https://hackage-content.haskell.org/package/QuickCheck-2.17.1.0/docs/Test-QuickCheck.html), and PBT libraries have since been developed for Python, Java, C, JavaScript, and many other languages. It generalizes the idea of unit testing by considering _properties_ that should hold for all input/output pairs. For example, suppose we are developing a library for binary search trees (BSTs), which have the invariant that all elements are distinct, and
+_property-based testing_ (PBT). PBT originated with the Haskell library
+[QuickCheck](https://hackage-content.haskell.org/package/QuickCheck-2.17.1.0/docs/Test-QuickCheck.html),
+and PBT libraries have since been developed for Python, Java, C, JavaScript,
+and many other languages. It generalizes the idea of unit testing by
+considering _properties_ that should hold for all input/output pairs. For
+example, suppose we are developing a library for binary search trees (BSTs),
+which have the invariant that all elements are distinct, and
 we want to test our `delete` function. It should always be true that, after
-we delete an element, it is no longer in the tree. We can write this as a QuickCheck property as follows (properties should always start with `prop_`):
+we delete an element, it is no longer in the tree. We can write this as a
+QuickCheck property as follows (properties should always start with `prop_`):
 
 ```Haskell
 prop_delete :: BST -> Int -> Bool
@@ -133,11 +145,17 @@ produced is configurable; by default it is 100.)
 This is very useful for many categories of test. For example,
 we can use it for checking postconditions, as above. We can use it
 to check that two functions are inverses of each other (e.g., we could
-look at how `insert` and `delete` interact when composed); properties that test how multiple functions interact are often called _metamorphic properties_. We often use it to check particularly "mathy" properties,
-such a testing that a function is _involutive_ (its own inverse) or _idempotent_ (applying it multiple times produces the same output as applying it once).  We can also
+look at how `insert` and `delete` interact when composed); properties that test
+how multiple functions interact are often called _metamorphic properties_. We
+often use it to check particularly "mathy" properties,
+such a testing that a function is _involutive_ (its own inverse) or
+_idempotent_ (applying it multiple times produces the same output as applying
+it once).  We can also
 check invariants of our data structures. For example, if instead of a
 custom `BST` type, we were using the regular `Tree` type, we might
-want to check that the output of all our library functions always satisfies some `isValidBST` function:
+want to check that the output of all our library functions always satisfies
+some `isValidBST` function:
+
 ```Haskell
 prop_deleteValid :: Tree -> Int -> Bool
 prop_deleteValid t i = isValidBST (delete t i)
@@ -146,23 +164,32 @@ However, if we run this, we will encounter an issue: this property
 only holds if the randomly generated input is a valid BST. Most of the
 time, it will not be. To address this, we can add a _precondition_:
 ```Haskell
-prop_deleteValid :: Tree -> Int -> Bool
+prop_deleteValid :: Tree -> Int -> Property
 prop_deleteValid t i = isValidBST t ==> isValidBST (delete t i)
 ```
 This way, QuickCheck will discard any input trees that are not
 already valid BSTs. Unfortunately, because most trees are not
 BSTs, it will waste a lot of time generating and discarding trees
-before it manages to successfully test the desired number of valid inputs. We will discuss this issue more in a later lecture.
+before it manages to successfully test the desired number of valid inputs. We
+will discuss this issue more in a later lecture.
+
+You may notice that the type changed in the example above: we are now producing
+a `Property`, not a `Bool`. `Property` is a custom QuickCheck type and the
+output of the `==>` operator, so if we use `==>` to include a precondition, our
+return type must be `Property`. `quickCheck` will accept either a `Property` or
+a `Bool` as an argument; we will see how this is possible in our typeclasses
+unit.
 
 One common form of PBT is _model-based testing_. Suppose we have
 a simple, intuitive implementation of a function `foo`, and we
 would like to optimize it, but the optimized version, `foo'`, is convoluted and
 we are not sure we got it right. We can check the property
-`foo x === foo' x` to ensure that for all inputs, the optimized version
+`foo x == foo' x` to ensure that for all inputs, the optimized version
 behaves the same as the model `foo`.
 
 How do we use PBT in Haskell? For a prop `prop_Foo`, we run
-`quickCheck prop_Foo` in GHCi. (Note that QuickCheck must be imported.) We will either get a success message:
+`quickCheck prop_Foo` in GHCi. (Note that QuickCheck must be imported.)
+We will either get a success message:
 ```
 ghci> quickCheck prop_Foo
 +++ Ok, passed 100 tests.
@@ -173,7 +200,8 @@ ghci> quickCheck prop_Foo
 *** Failed! Falsified (after 9 tests and 2 shrinks):
 0
 ```
-where `0` is a counterexample it found to `prop_Foo`. We will discuss in a later lecture more advanced QuickCheck options, as well as what `shrinks` are.
+where `0` is a counterexample it found to `prop_Foo`. We will discuss in a
+later lecture more advanced QuickCheck options, as well as what `shrinks` are.
 
 ## Choosing the right kind of testing
 
@@ -181,8 +209,15 @@ Unit testing and property-based testing each have their strengths.
 Property-based testing efficiently covers far more examples than a
 programmer could cover by hand. It also provides a clear specification:
 the program is correct if it satisfies these properties. It can be
-great for testing invariants of a custom data structure, or for specifying "math-like" properties such as two functions being inverses of each other. It can help us check a highly optimized, convoluted version of a function against an intuitive reference implementation. It's quite natural for functional programming --- it was actually first developed in Haskell. On the other hand, sometimes it can be difficult to think of properties that are not just a repeat of the program itself (for example, if we wanted to test a function that squares an input number and did not have a reference
-implementation). Additionally, in this unit, we only looked at properties of lists,
+great for testing invariants of a custom data structure, or for specifying
+"math-like" properties such as two functions being inverses of each other. It
+can help us check a highly optimized, convoluted version of a function against
+an intuitive reference implementation. It's quite natural for functional
+programming --- it was actually first developed in Haskell. On the other hand,
+sometimes it can be difficult to think of properties that are not just a repeat
+of the program itself (for example, if we wanted to test a function that
+squares an input number and did not have a reference implementation).
+Additionally, in this unit, we only looked at properties of lists,
 but with more complicated datatypes we would have had to manually write
 a function to generate arbitrary inputs. (The standard library
 already has lists covered for us.) This can be quite tedious.
@@ -196,4 +231,6 @@ for one input that we caught, and we want to make sure it isn't
 reintroduced (regression testing), or maybe we want to make sure
 the behavior is correct for a specific edge case (say, an empty list).
 
-Ultimately, programmers often use a combination of both in practice. In the rest of this class, we will continue refining our testing skills through a combination of both techniques.
+Ultimately, programmers often use a combination of both in practice. In the
+rest of this class, we will continue refining our testing skills through a
+combination of both techniques.
