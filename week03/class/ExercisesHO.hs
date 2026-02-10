@@ -3,99 +3,39 @@ module Exercises where
 import Data.List (sort)
 import Prelude hiding (and, sum)
 
--- #1 Use function names directly
+-- Eta reduce this function as much as possible
 
 absAll :: [Int] -> [Int]
 absAll xs = map (\x -> abs x) xs
 
-absAll' :: [Int] -> [Int]
-absAll' xs = map abs xs
-
--- ...when using infix operators
-
-sum :: [Int] -> Int
-sum xs = foldr (\x acc -> x + acc) 0 xs
-
-sum' :: [Int] -> Int
-sum' xs = foldr (+) 0 xs
-
-and :: [Bool] -> Bool
-and xs = foldr (\x acc -> x && acc) True xs
-
-and' :: [Bool] -> Bool
-and' xs = foldr (\x acc -> x && acc) True xs -- try this one
-
---------------
-
--- #2 Leverage function composition
+-- Rewrite to use function composition and eta reduce
 
 desort :: [Int] -> [Int]
 desort xs = reverse (sort xs)
 
-desort' :: [Int] -> [Int]
-desort' = reverse . sort
-
--- ...when constructing arguments to other functions
-
 oddOnly :: [Int] -> [Int]
 oddOnly xs = filter (\x -> not (even x)) xs
-
-oddOnly' :: [Int] -> [Int]
-oddOnly' xs = filter (not . even) xs
-
--- ...when combining more than two functions
 
 evenOdds :: [Int] -> Bool
 evenOdds xs = even (length (oddOnly xs))
 
-evenOdds' :: [Int] -> Bool
-evenOdds' xs = even (length (oddOnly xs)) -- try this one
+and :: Bool -> Bool -> Bool
+and x y = x && y
 
---------------
-
--- #3 Leverage partial application.
-
--- ...by eta reducing
-
-absAll'' :: [Int] -> [Int]
-absAll'' = map abs
-
-and'' :: [Bool] -> Bool
-and'' xs = foldr (&&) True xs -- try this one
-
--- ...by using operator sections
+-- Rewrite to use operator sections and eta reduce
 
 add3All :: [Int] -> [Int]
-add3All = map (\x -> 3 + x)
-
-add3All' :: [Int] -> [Int]
-add3All' = map (3 +)
+add3All xs = map (\x -> 3 + x) xs
 
 greaterThan100 :: [Int] -> [Int]
-greaterThan100 = filter (\x -> x > 100)
-
-greaterThan100' :: [Int] -> [Int]
-greaterThan100' = filter (\x -> x > 100) -- try this one
+greaterThan100 xs = filter (\x -> x > 100) xs
 
 --------------
 
--- All together now!
+-- Rewrite
 
--- example from last class:
-
-map' :: (a -> b) -> [a] -> [b]
-map' f xs = foldr (\x acc -> f x : acc) [] xs
-
-map'' :: (a -> b) -> [a] -> [b]
-map'' f xs = foldr (\x acc -> f x : acc) [] xs -- follow along locally
-
--- another example from last class:
-
-youngNames :: [Person] -> [String]
-youngNames xs = map name (filter (\x -> age x <= 18) xs)
-
-youngNames' :: [Person] -> [String]
-youngNames' xs = map name (filter (\x -> age x <= 18) xs) -- follow along locally
+twentyYOPeopleNames :: [Person] -> [String]
+twentyYOPeopleNames xs = map name (filter (\x -> age x == 20) xs)
 
 data Person = Person String Int
   deriving (Show)

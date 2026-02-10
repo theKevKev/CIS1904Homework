@@ -8,9 +8,15 @@ data Tree
 {- Exercise:
    Write a function isLeaf that checks if a tree is a leaf. -}
 
+isLeaf :: Tree -> Bool
+isLeaf = undefined
+
 {- Exercise:
    Write a function getRootVal that returns the integer value
    at the root of the tree. -}
+
+getRootVal :: Tree -> Int
+getRootVal = undefined
 
 --------------
 
@@ -24,5 +30,8 @@ c2 :: Coord
 c2 = Coord 0 90
 
 {- Exercise:
-   Write a function that (point-wise) adds two coordinates,
+   Write a function addCoord that (point-wise) adds two coordinates,
    e.g. addCoord c1 c2 should be Coord 90 90. -}
+
+addCoord :: Coord -> Coord -> Coord
+addCoord = undefined
