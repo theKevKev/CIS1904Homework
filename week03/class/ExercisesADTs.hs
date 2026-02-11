@@ -9,14 +9,17 @@ data Tree
    Write a function isLeaf that checks if a tree is a leaf. -}
 
 isLeaf :: Tree -> Bool
-isLeaf = undefined
+isLeaf x = case x of
+  Leaf -> True
+  Node {} -> False
 
 {- Exercise:
    Write a function getRootVal that returns the integer value
    at the root of the tree. -}
 
 getRootVal :: Tree -> Int
-getRootVal = undefined
+getRootVal Leaf = -1
+getRootVal (Node _ x _) = x
 
 --------------
 
@@ -34,4 +37,4 @@ c2 = Coord 0 90
    e.g. addCoord c1 c2 should be Coord 90 90. -}
 
 addCoord :: Coord -> Coord -> Coord
-addCoord = undefined
+addCoord (Coord c1x c1y) (Coord c2x c2y) = Coord (c1x + c2x) (c1y + c2y)
