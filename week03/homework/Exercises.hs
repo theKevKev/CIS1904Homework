@@ -181,7 +181,7 @@ Afterwards, implement each of the functions that correspond to the operations
 in Uop' and Bop'.
 -}
 
-evalUop' :: Uop' -> Value' -> Value' -> Value'
+evalUop' :: Uop' -> Value' -> Value'
 evalUop' = undefined
 
 evalBop' :: Bop' -> Value' -> Value' -> Value'
