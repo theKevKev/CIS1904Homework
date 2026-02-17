@@ -65,12 +65,12 @@ Remember: try to write idiomatic Haskell, avoiding repetition.
 -}
 
 mkIntVal :: Int -> Value
-mkIntVal = undefined
+mkIntVal = IntVal
 
 -- Fill in the definition for the plus function, which adds two Values
 --  pointwise.
 plus :: Value -> Value -> Value
-plus = undefined
+plus (IntVal x) (IntVal y) = mkIntVal (x + y)
 
 -- Write unit tests for plus and mkIntVal
 -- (You can optionally write property-based tests also,
@@ -80,10 +80,20 @@ exercise1 =
   TestList
     [ "plus"
         ~: TestList
-          [], -- insert tests for plus here
+          [ "zero-one" ~: plus (mkIntVal 0) (mkIntVal 1) ~?= mkIntVal 1,
+            "zero-zero" ~: plus (mkIntVal 0) (mkIntVal 0) ~?= mkIntVal 0,
+            "one-one" ~: plus (mkIntVal 1) (mkIntVal 1) ~?= mkIntVal 2,
+            "neg-neg" ~: plus (mkIntVal (-3)) (mkIntVal (-5)) ~?= mkIntVal (-8),
+            "pos-neg" ~: plus (mkIntVal 10) (mkIntVal (-4)) ~?= mkIntVal 6,
+            "neg-pos" ~: plus (mkIntVal (-7)) (mkIntVal 3) ~?= mkIntVal (-4)
+          ],
       "mkIntVal"
         ~: TestList
-          [] -- insert tests for mkIntVal here
+          [ "zero" ~: mkIntVal 0 ~?= IntVal 0,
+            "one" ~: mkIntVal 1 ~?= IntVal 1,
+            "pos" ~: mkIntVal 13 ~?= IntVal 13,
+            "neg" ~: mkIntVal (-4) ~?= IntVal (-4)
+          ]
     ]
 
 -- Exercise 2:
@@ -135,15 +145,59 @@ to test this case), and the result should always be nonnegative.
 -}
 
 evalUop :: Uop -> Value -> Value
-evalUop = undefined
+evalUop Neg (IntVal x) = IntVal (-x)
 
 evalBop :: Bop -> Value -> Value -> Value
-evalBop = undefined
+evalBop Plus (IntVal x) (IntVal y) = IntVal (x + y)
+evalBop Minus (IntVal x) (IntVal y) = IntVal (x - y)
+evalBop Times (IntVal x) (IntVal y) = IntVal (x * y)
+evalBop Divide (IntVal x) (IntVal y) = IntVal (x `div` y)
+evalBop Modulo (IntVal x) (IntVal y) = IntVal (x `mod` y)
 
 exercise2 :: Test
 exercise2 =
   TestList
-    [] -- add a TestList for each of the implemented operator functions
+    [ "evalUop"
+        ~: TestList
+          [ "positive" ~: evalUop Neg (IntVal 3) ~?= IntVal (-3),
+            "negative" ~: evalUop Neg (IntVal (-5)) ~?= IntVal 5,
+            "zero" ~: evalUop Neg (IntVal 0) ~?= IntVal 0
+          ],
+      "Plus"
+        ~: TestList
+          [ "pos-pos" ~: evalBop Plus (IntVal 2) (IntVal 3) ~?= IntVal 5,
+            "zero-zero" ~: evalBop Plus (IntVal 0) (IntVal 0) ~?= IntVal 0,
+            "neg-neg" ~: evalBop Plus (IntVal (-1)) (IntVal (-2)) ~?= IntVal (-3),
+            "pos-neg" ~: evalBop Plus (IntVal 2) (IntVal (-4)) ~?= IntVal (-2)
+          ],
+      "Minus"
+        ~: TestList
+          [ "bigger" ~: evalBop Minus (IntVal 5) (IntVal 3) ~?= IntVal 2,
+            "smaller" ~: evalBop Minus (IntVal 3) (IntVal 5) ~?= IntVal (-2),
+            "zero-zero" ~: evalBop Minus (IntVal 0) (IntVal 0) ~?= IntVal 0,
+            "neg" ~: evalBop Minus (IntVal (-2)) (IntVal (-4)) ~?= IntVal 2
+          ],
+      "Times"
+        ~: TestList
+          [ "pos-pos" ~: evalBop Times (IntVal 2) (IntVal 3) ~?= IntVal 6,
+            "zero-X" ~: evalBop Times (IntVal 0) (IntVal 5) ~?= IntVal 0,
+            "neg-pos" ~: evalBop Times (IntVal (-3)) (IntVal 4) ~?= IntVal (-12),
+            "neg-neg" ~: evalBop Times (IntVal (-2)) (IntVal (-2)) ~?= IntVal 4
+          ],
+      "Divide"
+        ~: TestList
+          [ "even-divide" ~: evalBop Divide (IntVal 6) (IntVal 3) ~?= IntVal 2,
+            "remainder" ~: evalBop Divide (IntVal 7) (IntVal 2) ~?= IntVal 3,
+            "neg" ~: evalBop Divide (IntVal 6) (IntVal (-2)) ~?= IntVal (-3),
+            "neg remainder" ~: evalBop Divide (IntVal (-3)) (IntVal 2) ~?= IntVal (-2)
+          ], -- no need to test divide by zero
+      "Modulo"
+        ~: TestList
+          [ "remainder" ~: evalBop Modulo (IntVal 7) (IntVal 3) ~?= IntVal 1,
+            "no remainder" ~: evalBop Modulo (IntVal 6) (IntVal 3) ~?= IntVal 0,
+            "negative input" ~: evalBop Modulo (IntVal (-7)) (IntVal 3) ~?= IntVal 2
+          ] -- no need to test modulo zero
+    ]
 
 -- Exercise 3:
 {-
@@ -182,15 +236,35 @@ in Uop' and Bop'.
 -}
 
 evalUop' :: Uop' -> Value' -> Value'
-evalUop' = undefined
+evalUop' Not (BoolVal x) = BoolVal (not x)
 
 evalBop' :: Bop' -> Value' -> Value' -> Value'
-evalBop' = undefined
+evalBop' Eq (BoolVal x) (BoolVal y) = BoolVal (x == y)
+evalBop' Ne (BoolVal x) (BoolVal y) = BoolVal (x /= y)
 
 exercise3 :: Test
 exercise3 =
   TestList
-    [] -- add a TestList for each of the implemented operator functions
+    [ "evalUop' Not"
+        ~: TestList
+          [ "not true" ~: evalUop' Not (BoolVal True) ~?= BoolVal False,
+            "not false" ~: evalUop' Not (BoolVal False) ~?= BoolVal True
+          ],
+      "evalBop' Eq"
+        ~: TestList
+          [ "true-true" ~: evalBop' Eq (BoolVal True) (BoolVal True) ~?= BoolVal True,
+            "false-false" ~: evalBop' Eq (BoolVal False) (BoolVal False) ~?= BoolVal True,
+            "true-false" ~: evalBop' Eq (BoolVal True) (BoolVal False) ~?= BoolVal False,
+            "false-true" ~: evalBop' Eq (BoolVal False) (BoolVal True) ~?= BoolVal False
+          ],
+      "evalBop' Ne"
+        ~: TestList
+          [ "true-true" ~: evalBop' Ne (BoolVal True) (BoolVal True) ~?= BoolVal False,
+            "false-false" ~: evalBop' Ne (BoolVal False) (BoolVal False) ~?= BoolVal False,
+            "true-false" ~: evalBop' Ne (BoolVal True) (BoolVal False) ~?= BoolVal True,
+            "false-true" ~: evalBop' Ne (BoolVal False) (BoolVal True) ~?= BoolVal True
+          ]
+    ]
 
 {-
 Write down the number of hours it took you to complete this homework. Please
@@ -199,10 +273,10 @@ covered so far, not necessarily from this week.
 -}
 
 time :: Double
-time = error "unimplemented"
+time = 1
 
 question :: String
-question = error "unimplemented"
+question = "When do you recommend we write a separate pattern-matching statment (like defining evalBop' Eq and evalBop' Ne on separate lines) versus using the `case of` syntax? When is one more readable than the other? "
 
 check :: Test
 check =
