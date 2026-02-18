@@ -4,31 +4,42 @@ import Data.Char (isSpace, isUpper)
 
 -- safeHead example
 
--- FILL IN HERE
+safeHead :: [a] -> Maybe a
+safeHead [] = Nothing
+safeHead (x : xs) = Just x
 
 -- lengths example
 
--- FILL IN HERE
+lengths :: [[a]] -> [Int]
+lengths = map length
 
 -- singletons example
 
--- FILL IN HERE
+singletons :: [a] -> [[a]]
+singletons = map (: [])
 
 -- squares example
 
--- FILL IN HERE
+squares :: [Int] -> [Int]
+squares = map (^ 2)
 
 -- foo example
 
--- FILL IN HERE
+foo :: (a -> Bool) -> [a] -> [a]
+foo fun [] = []
+foo fun (x : xs)
+  | fun x = x : foo fun xs
+  | otherwise = foo fun xs
 
 -- removeSpaces example
 
--- FILL IN HERE
+removeSpaces :: String -> String
+removeSpaces = filter (not . isSpace)
 
 -- reverse example
 
--- FILL IN HERE
+reverse :: [a] -> [a]
+reverse = foldr (\x y -> y ++ [x]) []
 
 -- Exercise
 
@@ -39,16 +50,16 @@ data Person = Person String Int
 -- Fill in these two functions:
 -- One to get a person's name, and one to get their age.
 
--- name :: ???
--- name = error "unimplemented"
+name :: Person -> String
+name (Person x y) = x
 
--- age :: ???
--- age = error "unimplemented"
+age :: Person -> Int
+age (Person x y) = y
 
 -- Return the names of all people in the input list under age 18.
 -- Use map and filter.
 youngNames :: [Person] -> [String]
-youngNames = error "unimplemented"
+youngNames = map name . filter (\x -> age x < 18)
 
 -- youngNames peopleInput should return ["Bob", "Jill"].
 
@@ -60,7 +71,7 @@ peopleInput = [Person "Bob" 12, Person "Jack" 23, Person "Jill" 18, Person "Alic
 -- Reimplement map and filter using foldr.
 
 map' :: (a -> b) -> [a] -> [b]
-map' = error "unimplemented"
+map' fun = foldr (\x y -> fun x : y) []
 
 filter' :: (a -> Bool) -> [a] -> [a]
-filter' = error "unimplemented"
+filter' fun = foldr (\x y -> (if fun x then x : y else y)) []
