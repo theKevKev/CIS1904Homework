@@ -1,7 +1,7 @@
 {
     "javascript.suggest.autoImports": false,
     "typescript.suggest.autoImports": false,
-    "chat.disableAIFeatures": true,
+    "chat.disableAIFeatures": false,
     "chat.extensionUnification.enabled": false,
     "C_Cpp.copilotHover": "disabled"
 }

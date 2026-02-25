@@ -24,10 +24,21 @@ Include at least 3 unit tests.
 -}
 
 fib :: Integer -> Integer
-fib = error "unimplemented"
+fib n
+  | n < 0 = - fib (-n)
+  | n == 0 = 0
+  | n == 1 = 1
+  | otherwise = fib (n-1) + fib (n-2)
 
 testFib :: Test
-testFib = error "unimplemented"
+testFib = TestList 
+  [
+    "zero" ~: fib 0 ~?= 0,
+    "one" ~: fib 1 ~?= 1,
+    "two" ~: fib 2 ~?= 1,
+    "six" ~: fib 6 ~?= 8,
+    "neg six" ~: fib (-6) ~?= (-8)
+  ]
 
 {- Unfortunately, `fib` is very slow. The complexity of calculating the nth
    number is exponential in n. Below we have a tail recursive version. `go` is
@@ -49,8 +60,7 @@ fib' n = go (0, 1) n
       | otherwise = x
 
 prop_FibFib' :: Integer -> Property
-prop_FibFib' = error "unimplemented"
-
+prop_FibFib' n = (-32 <= n) && (n <= 32) ==> (fib n) === (fib' n) -- I added the -32 < n < 32 to increase the speed of the test
 -- Exercise 1b
 
 {- Define the infinite list of all (nonnegative) Fibonacci numbers, using fib.
@@ -64,10 +74,16 @@ prop_FibFib' = error "unimplemented"
   list.) -}
 
 fibs :: [Integer]
-fibs = error "unimplemented"
+fibs = map fib [0..]
 
 testFibs :: Test
-testFibs = error "unimplemented"
+testFibs = TestList 
+  [
+    "zero" ~: take 0 fibs ~?= [], 
+    "one" ~: take 1 fibs ~?= [0],
+    "two" ~: take 2 fibs ~?= [0, 1], 
+    "five" ~: take 5 fibs ~?= [0, 1, 1, 2, 3]
+  ]
 
 {- Unfortunately, `fibs` is also very slow. Laziness means we don't calculate
   values unless we need them, but it doesn't make the calculation any faster
@@ -88,11 +104,16 @@ testFibs = error "unimplemented"
 -}
 
 fibs' :: [Integer]
-fibs' = error "unimplemented"
+fibs' = 0 : 1 : zipWith (+) fibs' (tail fibs')
 
 testFibs' :: Test
-testFibs' = error "unimplemented"
-
+testFibs' = TestList 
+  [
+    "zero" ~: take 0 fibs' ~?= [], 
+    "one" ~: take 1 fibs' ~?= [0],
+    "two" ~: take 2 fibs' ~?= [0, 1], 
+    "five" ~: take 5 fibs' ~?= [0, 1, 1, 2, 3]
+  ]
 {- In the example above, we have to either use the partial function `tail`, or
     match on `fibs` and come up with some default behavior in the impossible
     case that `fibs` is the empty list. This is annoying; it would be nice to
@@ -133,7 +154,7 @@ streamFromList = foldr Cons . streamRepeat
   `streamToList`. Hint: this is a good situation for round-trip properties. -}
 
 streamToList :: Stream a -> [a]
-streamToList = error "unimplemented"
+streamToList (Cons x xs) = x : streamToList xs
 
 testStreamToList :: Test
 testStreamToList =
@@ -145,10 +166,10 @@ testStreamToList =
        ]
 
 prop_ListStreamList :: [Int] -> Property
-prop_ListStreamList = error "unimplemented"
+prop_ListStreamList xs = (take (length xs) . streamToList . streamFromList 0) xs === xs
 
 prop_StreamListStream :: Stream Int -> Property
-prop_StreamListStream = error "unimplemented"
+prop_StreamListStream xs = (streamTake 100 . streamFromList 0 . streamToList) xs === streamTake 100 xs
 
 -- Exercise 2b
 
@@ -156,10 +177,15 @@ prop_StreamListStream = error "unimplemented"
   Again, you may use `streamTake` and the example streams `collatz7`,
   `ackermann2_1`, `triangle`, and `batteries` in your tests. -}
 streamMap :: (a -> b) -> Stream a -> Stream b
-streamMap = error "unimplemented"
+streamMap func (Cons x xs) = Cons (func x) (streamMap func xs)
 
 testStreamMap :: Test
-testStreamMap = error "unimplemented"
+testStreamMap = TestList
+  [
+    "collatz7" ~: streamTake 5 (streamMap (2*) collatz7) ~?= [14, 44, 22, 68, 34], 
+    "ackermann2_1" ~: streamTake 7 (streamMap (\x -> x - 1) ackermann2_1) ~?= [0, 4, 12, 28, 60, 124, 252],
+    "batteries? nah sheep" ~: streamTake 10 (streamMap ("B"++) batteries) ~?= ["BA", "BAA", "BAAA", "BAAAA", "BAAAAA", "BAAAAAA", "BAAAAAAA", "BAAAAAAAA", "BAAAAAAAAA", "BAAAAAAAAAA"]
+  ]
 
 -- Exercise 2c
 
@@ -172,10 +198,10 @@ streamGenerate f x = Cons x (streamGenerate f (f x))
 {- Create a stream of the natural numbers. (Recall that zero is a natural
     number.) Write at least one unit test. -}
 nats :: Stream Integer
-nats = undefined
+nats = streamGenerate (1+) 0
 
 testNats :: Test
-testNats = error "unimplemented"
+testNats = "first 10" ~: streamTake 10 nats ~?= [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 {-
 Write down the number of hours it took you to complete this homework. Please
@@ -186,10 +212,10 @@ Finally, test all your functions by running `main` in GHCi.
 -}
 
 time :: Double
-time = undefined
+time = 2
 
 question :: String
-question = undefined
+question = "why does the fibs' approach work faster in O(N)? I understand why it's correct but not why it's faster, especially since we have lazy evaluation. "
 
 check :: Test
 check =
