@@ -16,4 +16,4 @@ streamRepeat :: a -> Stream a
 streamRepeat x = Cons x (streamRepeat x)
 
 streamFromList :: a -> [a] -> Stream a
-streamFromList x = foldr Cons (streamRepeat x)
+streamFromList = foldr Cons . streamRepeat
