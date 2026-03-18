@@ -5,7 +5,7 @@ module Exercises where
 import Data.List
 import GHC.Natural (Natural)
 import Test.HUnit
-import Test.QuickCheck
+import Test.QuickCheck (Arbitrary (arbitrary), Property, (===))
 
 {- We will work with polynomials in this exercise.
 
@@ -24,13 +24,16 @@ In this representation, the polynomial `3 + 5x + x^2` would be written as
 -}
 
 newtype Poly = P [Int]
-  deriving (Eq) -- Erase this.
+
+-- deriving (Eq) -- Erase this.
 
 {-
 Erase the Eq derivation above and write a new Eq instance for Poly here.
 -}
 
--- New instance here
+instance Eq Poly where
+  (==) :: Poly -> Poly -> Bool
+  P xs == P ys = dropWhileEnd (== 0) xs == dropWhileEnd (== 0) ys
 
 {-
 What is a number? In Haskell, a number is any type that is an instance of the
@@ -54,7 +57,7 @@ instance Num Poly where
   (*) = times -- Implemented later
 
   negate :: Poly -> Poly
-  negate = error "unimplemented" -- Implement here
+  negate (P xs) = P (map negate xs)
 
   fromInteger :: Integer -> Poly
   fromInteger = fromIntegerPoly -- Implemented later
@@ -85,7 +88,9 @@ representation, this means that `P [5, 1] + P [1, 1, 3] = P [6, 2, 3]`.
 -}
 
 plus :: Poly -> Poly -> Poly
-plus = error "unimplemented"
+plus (P []) q = q
+plus p (P []) = p
+plus (P (x : xs)) (P (y : ys)) = let P rest = plus (P xs) (P ys) in P ((x + y) : rest)
 
 testPlus :: Test
 testPlus =
@@ -110,7 +115,9 @@ since we've already defined `(+)`.
 -}
 
 times :: Poly -> Poly -> Poly
-times = error "unimplemented"
+times (P xs) (P ys) = sum $ zipWith shiftMult xs [0 ..]
+  where
+    shiftMult c i = P (replicate i 0 ++ map (* c) ys)
 
 testTimes :: Test
 testTimes =
@@ -125,7 +132,7 @@ testTimes =
 polynomial. For example, `3` becomes `P [3]`. -}
 
 fromIntegerPoly :: Integer -> Poly
-fromIntegerPoly = error "unimplemented"
+fromIntegerPoly n = P [fromInteger n]
 
 testFromInteger :: Test
 testFromInteger =
@@ -169,7 +176,19 @@ It should satisfy these constraints:
 
 instance Show Poly where
   show :: Poly -> String
-  show = error "unimplemented"
+  show (P xs) =
+    let nonZero = filter ((/= 0) . fst) (zip xs [0 ..])
+        showTerm (c, 0) = show c
+        showTerm (1, 1) = "x"
+        showTerm (c, 1) = show c ++ "x"
+        showTerm (1, d) = "x^" ++ show d
+        showTerm (c, d) = show c ++ "x^" ++ show d
+        joinRest (c, d)
+          | c < 0 = " - " ++ showTerm (abs c, d)
+          | otherwise = " + " ++ showTerm (c, d)
+     in case nonZero of
+          [] -> "0"
+          (t : ts) -> showTerm t ++ concatMap joinRest ts
 
 testShow :: Test
 testShow =
