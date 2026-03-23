@@ -1,5 +1,6 @@
 module Exercises where
 
+import Data.List (intercalate)
 import Data.Map (Map, empty, fromList, toList)
 import Test.HUnit
 import Test.QuickCheck
@@ -17,13 +18,13 @@ data Value
   | IntVal Int
   | BoolVal Bool
   | StringVal String
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
 
 data Uop
   = Neg
   | Not
   | Len
-  deriving (Eq, Show)
+  deriving (Eq)
 
 data Bop
   = Plus
@@ -36,18 +37,18 @@ data Bop
   | Lt
   | Le
   | Concat
-  deriving (Eq, Show)
+  deriving (Eq)
 
 data Expression
   = Val Value
   | Op1 Uop Expression
   | Op2 Expression Bop Expression
-  deriving (Eq, Show)
+  deriving (Eq)
 
 data Statement
   = If Expression Statement Statement -- if e then s1 else s2 end
   | Return Expression
-  deriving (Eq, Show)
+  deriving (Eq)
 
 {-
 Delete Show from the "deriving" list for Value and write a custom instance.
@@ -55,6 +56,12 @@ Delete Show from the "deriving" list for Value and write a custom instance.
 We have included tests to show the intended behavior. You are welcome (but not
 required) to include additional tests.
 -}
+
+instance Show Value where
+  show NilVal = "nil"
+  show (IntVal x) = show x
+  show (BoolVal x) = show x
+  show (StringVal x) = show x
 
 testShowValue :: Test
 testShowValue =
@@ -73,6 +80,11 @@ We have included tests to show the intended behavior. You are welcome (but not
 required) to include additional tests.
 -}
 
+instance Show Uop where
+  show Neg = "-"
+  show Not = "not"
+  show Len = "#"
+
 testShowUop :: Test
 testShowUop =
   "showUop"
@@ -90,6 +102,18 @@ homeworks.)
 We have included tests to show the intended behavior. You are welcome (but not
 required) to include additional tests.
 -}
+
+instance Show Bop where
+  show Plus = "+"
+  show Minus = "-"
+  show Times = "*"
+  show Divide = "//"
+  show Gt = ">"
+  show Ge = ">="
+  show Lt = "<"
+  show Le = "<="
+  show Eq = "=="
+  show Concat = ".."
 
 testShowBop :: Test
 testShowBop =
@@ -128,6 +152,23 @@ Stephanie Weirich's implementation is here
 https://www.seas.upenn.edu/~cis5520/current/hw/hw05/LuSyntax.html.
 -}
 
+instance Show Expression where
+  show (Val value) = show value
+  show (Op1 uop exp) = show uop ++ "(" ++ show exp ++ ")"
+  show (Op2 exp1 bop exp2) = "(" ++ show exp1 ++ ") " ++ show bop ++ " (" ++ show exp2 ++ ")"
+
+testShowExpression :: Test
+testShowExpression =
+  "showExpression"
+    ~: TestList
+      [ "Val" ~: show (Val NilVal) ~?= "nil",
+        "Val" ~: show (Val (IntVal 3)) ~?= "3",
+        "Op1" ~: show (Op1 Neg (Val (IntVal 5))) ~?= "-(5)",
+        "Op1" ~: show (Op1 Len (Val (StringVal "test"))) ~?= "#(\"test\")",
+        "Op2" ~: show (Op2 (Val (IntVal 3)) Plus (Val (IntVal 4))) ~?= "(3) + (4)",
+        "Op2" ~: show (Op2 (Val (StringVal "hello ")) Concat (Val (StringVal "World"))) ~?= "(\"hello \") .. (\"World\")"
+      ]
+
 {-
 Delete Show from the "deriving" list for Statement and write a custom
 instance.
@@ -141,6 +182,20 @@ For a Return statement, just show the contained expression.
 
 Include at least one test per constructor and add your tests to main.
 -}
+
+instance Show Statement where
+  show (If exp st1 st2) = "if (" ++ show exp ++ ") then (" ++ show st1 ++ ") else (" ++ show st2 ++ ")"
+  show (Return st) = show st
+
+testShowStatement :: Test
+testShowStatement =
+  "showStatement"
+    ~: TestList
+      [ "if then else" ~: show (If (Val (BoolVal True)) (Return (Val (IntVal 0))) (Return (Val (IntVal 1)))) ~?= "if (True) then (0) else (1)",
+        "if then else" ~: show (If (Op2 (Val (IntVal 1)) Lt (Val (IntVal 3))) (Return (Val (BoolVal True))) (Return (Val (BoolVal False)))) ~?= "if ((1) < (3)) then (True) else (False)",
+        "if then else" ~: show (If (Val (BoolVal False)) (Return (Val (StringVal "word"))) (Return (Val NilVal))) ~?= "if (False) then (\"word\") else (nil)",
+        "return" ~: show (Return (Val (IntVal 3))) ~?= "3"
+      ]
 
 {-
 In a future homework, we will use the type constructor Data.Map.Map
@@ -165,8 +220,11 @@ You are welcome (but not required) to include additional tests.
 
 newtype LuMap a b = LuMap {m :: Map a b}
 
-instance Show (LuMap a b) where
-  show (LuMap {m = x}) = error "unimplemented"
+instance (Show a, Show b) => Show (LuMap a b) where
+  show (LuMap {m = x}) = "{" ++ intercalate "," (map as_string pairs) ++ "}"
+    where
+      pairs = toList x
+      as_string (x, y) = show x ++ "=" ++ show y
 
 testShowMap :: Test
 testShowMap =
@@ -209,7 +267,22 @@ evaluating the contained expression.
 Write at least 5 tests and include them in main. -}
 
 evalS :: Statement -> Value
-evalS = error "unimplemented"
+evalS (If exp st1 st2) = case eval exp of
+  NilVal -> evalS st2
+  BoolVal False -> evalS st2
+  _ -> evalS st1
+evalS (Return st) = eval st
+
+testEvalS :: Test
+testEvalS =
+  "evalS"
+    ~: TestList
+      [ "return" ~: evalS (Return (Val (IntVal 42))) ~?= IntVal 42,
+        "if true" ~: evalS (If (Val (BoolVal True)) (Return (Val (IntVal 1))) (Return (Val (IntVal 2)))) ~?= IntVal 1,
+        "if false" ~: evalS (If (Val (BoolVal False)) (Return (Val (StringVal "yes"))) (Return (Val (StringVal "no")))) ~?= StringVal "no",
+        "if nil" ~: evalS (If (Val NilVal) (Return (Val (IntVal 1))) (Return (Val (IntVal 2)))) ~?= IntVal 2,
+        "if any object" ~: evalS (If (Val (StringVal "bubbles")) (Return (Val (BoolVal True))) (Return (Val (BoolVal False)))) ~?= BoolVal True
+      ]
 
 {-
 Write down the number of hours it took you to complete this homework. Please
@@ -218,10 +291,10 @@ covered so far, not necessarily from this week.)
 -}
 
 time :: Double
-time = undefined
+time = 1.5
 
 question :: String
-question = undefined
+question = "is there a way to pattern match on multiple equivalent conditions? For example \"case x of (NilVal or BoolVal False) -> st1\" instead of having two separate lines for that? "
 
 check :: Test
 check =
@@ -242,11 +315,14 @@ main = do
           check,
           testEvalUop,
           testEvalBop,
+          testShowExpression,
+          testShowStatement,
           testEval,
           testShowValue,
           testShowUop,
           testShowBop,
-          testShowMap
+          testShowMap,
+          testEvalS
         ]
   return ()
 
