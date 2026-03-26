@@ -150,7 +150,7 @@ write more.
 
 instance Applicative LuParser where
   pure :: a -> LuParser a
-  pure x = LuParser $ \s -> Right (x, s)
+  pure = undefined
 
   (<*>) :: LuParser (a -> b) -> LuParser a -> LuParser b
   p1 <*> p2 = LuParser $ \s -> case parse p1 s of
