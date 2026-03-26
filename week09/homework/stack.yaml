@@ -1,4 +1,7 @@
-resolver: lts-21.25
-compiler: ghc-9.4.8
+resolver: lts-22.32
 packages:
   - .
+
+extra-deps:
+    - git: https://github.com/cassiatorczon/haskelltester.git
+      commit: 38f551c5748fab0a172f2d8e5d99dfb5173faa22

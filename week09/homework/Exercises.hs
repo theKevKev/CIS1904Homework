@@ -1,220 +1,186 @@
-module Exercises where
+{-# LANGUAGE InstanceSigs #-}
 
-import Data.Map (Map, empty, fromList, toList)
+module Solutions where
+
+import Data.List (stripPrefix)
+import Data.Map (Map, fromList, lookup, toList)
 import Test.HUnit
-import Test.QuickCheck
+  ( Test (TestCase, TestList),
+    assertBool,
+    runTestTT,
+    (~:),
+    (~?=),
+  )
 
 {-
-In the first exercise, we will improve the readability of our tests by making
-custom instances of Show for all of the datatypes representing our language.
-
-Note that we have added to our language Statements, which either case on a
-boolean guard or directly return an expression.
+This week we are going to begin exploring parsing.
 -}
-
-data Value
-  = NilVal
-  | IntVal Int
-  | BoolVal Bool
-  | StringVal String
-  deriving (Eq, Ord, Show)
-
-data Uop
-  = Neg
-  | Not
-  | Len
-  deriving (Eq, Show)
-
-data Bop
-  = Plus
-  | Minus
-  | Times
-  | Divide
-  | Eq
-  | Gt
-  | Ge
-  | Lt
-  | Le
-  | Concat
-  deriving (Eq, Show)
-
-data Expression
-  = Val Value
-  | Op1 Uop Expression
-  | Op2 Expression Bop Expression
-  deriving (Eq, Show)
-
-data Statement
-  = If Expression Statement Statement -- if e then s1 else s2 end
-  | Return Expression
-  deriving (Eq, Show)
 
 {-
-Delete Show from the "deriving" list for Value and write a custom instance.
+Either a b is a type that contains either an a or a b. It is often used to
+model errors, because it can represent either an error message or a result.
+(By convention, the first type argument is the error type.) It is defined as
+follows:
 
-We have included tests to show the intended behavior. You are welcome (but not
-required) to include additional tests.
+data Either a b = Left a | Right b
+  deriving ( Eq, Ord, Read, Show)
+
+The standard library defines instances of Functor, Applicative, and Foldable
+for Either a, with no restrictions on the type variable a.
 -}
 
-testShowValue :: Test
-testShowValue =
-  "showValue"
+{-
+Exercise 1
+
+Implement getVal, which, given a Map, returns either the corresponding value
+for the input key or a helpful error message of your choosing. (You may use a
+function from Data.Map.)
+Write at least 2 tests (unit or property-based, you may choose). Make sure to
+run all your tests, and if you write unit tests, add them to `main`.
+(We have added example Maps at the bottom of this file that you may use.)
+
+Then implement getAndApp, which gets a function and a value from corresponding
+dictionaries and, using <*>, gets the result of applying the function to the
+value. If either operation fails, getAndApp should return the corresponding
+error message (defaulting to the first message if both fail).
+Write at least 4 tests (unit or property-based, you may choose). Make sure to
+run all your tests, and if you write unit tests, add them to `main`.
+-}
+
+type LuParseError = String
+
+type LuKey = String
+
+getVal :: (Show a, Ord a) => a -> Map a b -> Either LuParseError b
+getVal = undefined
+
+getAndApp ::
+  Map LuKey (a -> b) ->
+  Map LuKey a ->
+  LuKey ->
+  LuKey ->
+  Either LuParseError b
+getAndApp = undefined
+
+{-
+Exercise 2
+Below we define LuParser, a custom type for parsing a value of type a into a
+String. Note that we could have equivalently written this:
+
+type LuParser a = String -> Either LuError (a, String)
+
+For documentation purposes/to construct an interface for our
+types, we instead wrap it as shown below.
+
+We can think of this as updating state as we parse. We take in a String, parse
+a little bit of it (potentially failing), and then return both the value we
+parsed and the remainder of the string that we haven't gotten to yet.
+
+Fill in the rest of the Functor instance for LuParser below. Note that to use
+parse for a LuParser p on a string s, we write `parse p s`, and that the
+\$ symbol just affects precedence (i.e., you can think of it as being
+similar to putting everything following it in parentheses).
+
+Remember that Either LuError is already an instance of Functor.
+
+Testing functions over parsers is difficult. In general, it is very
+awkward both to generate functions and to test whether two functions are
+equal. (Consider why this is the case.) For the purposes of this homework,
+we will get around this by running our parsers.
+For example, because it is hard to test if p1 is equal to p2 for parsers
+p1 and p2, we will instead check if parse p1 s is equal to parse p2 s for
+some String s. We have included examples below, testing the functor identity
+law. (In Haskell, the composition law is actually implied by the identity law,
+so we do not need to test that.)
+
+Write at least 2 more unit tests. Make sure to run all your tests and include
+them in `main`.
+We have added some toy parsers at the bottom of this file for testing.
+(Note that, again because function equality is complicated, you should
+be careful with how you use parseFunc in tests.)
+-}
+
+newtype LuParser a = LuParser {parse :: String -> Either LuParseError (a, String)}
+
+instance Functor LuParser where
+  fmap :: (a -> b) -> LuParser a -> LuParser b
+  fmap f p = LuParser $ \s -> undefined
+    where
+      mapFst :: (a -> b) -> (a, c) -> (b, c)
+      mapFst = undefined -- map over the first element in a pair
+
+testFmap :: Test
+testFmap =
+  "fmap"
     ~: TestList
-      [ "NilVal" ~: show NilVal ~?= "nil",
-        "IntVal" ~: show (IntVal (-4)) ~?= "-4",
-        "BoolVal" ~: show (BoolVal True) ~?= "True",
-        "StringVal" ~: show (StringVal "foo") ~?= "\"foo\""
+      [ "idOK" ~: parse (fmap id parseVar) "x" ~?= parse parseVar "x",
+        "idFail" ~: parse (fmap id parseVar) "foo" ~?= parse parseVar "foo",
+        "square" ~: parse (fmap (^ 2) parseVar) "xyz" ~?= Right (16, "yz"),
+        "addOne" ~: parse (fmap (+ 1) parseVar) "yz" ~?= Right (58, "z")
       ]
 
 {-
-Delete Show from the "deriving" list for Uop and write a custom instance.
+Exercise 3
+Fill in the definition of `pure` in the instance of Applicative for LuParser
+below. Remember that a parser here is just an elaborate container; all `pure`
+does is put a value in a container.
+Write at least 1 unit test for pure. Make sure to run all your tests and add
+them to `main`.
 
-We have included tests to show the intended behavior. You are welcome (but not
-required) to include additional tests.
+Then, fill in the undefined portions of the implementation of <*>. Recall that
+we defined LuParser as a wrapper for the type
+
+String -> Either LuParseError (a, String)
+
+where (a, String) represents the parsed value and the remaining portion of the
+input that has not yet been parsed. We can think of p1 <*> p2 as parsing a
+segment of input string using p1, then parsing the next segment using p2, and
+then applying the function we parsed using p1 to the value we parsed using p2.
+(Right now we are not handling whitespace; we will deal with that in a future
+homework.)
+
+Conceptually, if the first parse fails, we stop computation and return an error
+message (this is why `Either` is in our Parser type; your implementation should
+not use Haskell's `error` function). Otherwise, we continue with the second
+parse.
+
+We have included a few tests for <*>. You are welcome (but not required) to
+write more.
 -}
 
-testShowUop :: Test
-testShowUop =
-  "showUop"
+instance Applicative LuParser where
+  pure :: a -> LuParser a
+  pure x = LuParser $ \s -> Right (x, s)
+
+  (<*>) :: LuParser (a -> b) -> LuParser a -> LuParser b
+  p1 <*> p2 = LuParser $ \s -> case parse p1 s of
+    Left e -> undefined
+    Right (f, s') -> undefined
+
+testApply :: Test
+testApply =
+  "<*>"
     ~: TestList
-      [ "Neg" ~: show Neg ~?= "-",
-        "Not" ~: show Not ~?= "not",
-        "Len" ~: show Len ~?= "#"
+      [ parse (parseFunc <*> parseVar) "addOnex" ~?= Right (-3, ""),
+        parse (parseFail <*> parseVar) "x"
+          ~?= ( Left "This parser always fails." ::
+                  Either LuParseError (Bool, String)
+              ),
+        parse (parseFunc <*> parseVar) "negyfoobar" ~?= Right (-57, "foobar"),
+        parse (parseFunc <*> parseVar) "neg"
+          ~?= Left "No value found for key \"\".",
+        parse (parseFail <*> parseVar) "1"
+          ~?= ( Left "This parser always fails." ::
+                  Either LuParseError ((), String)
+              )
       ]
-
-{-
-Delete Show from the "deriving" list for Bop and write a custom instance.
-(Note that we have removed Modulo from the language for this and subsequent
-homeworks.)
-
-We have included tests to show the intended behavior. You are welcome (but not
-required) to include additional tests.
--}
-
-testShowBop :: Test
-testShowBop =
-  "showBop"
-    ~: TestList
-      [ "Plus" ~: show Plus ~?= "+",
-        "Minus" ~: show Minus ~?= "-",
-        "Times" ~: show Times ~?= "*",
-        "Divide" ~: show Divide ~?= "//",
-        "Gt" ~: show Gt ~?= ">",
-        "Ge" ~: show Ge ~?= ">=",
-        "Lt" ~: show Lt ~?= "<",
-        "Le" ~: show Le ~?= "<=",
-        "Eq" ~: show Eq ~?= "==",
-        "Concat" ~: show Concat ~?= ".."
-      ]
-
-{-
-Delete Show from the "deriving" list for Expression and write a custom
-instance.
-
-For Values, just show the underlying Value.
-For unary operations, show the operation and then the operand in
-parentheses.
-For binary operations, show the first operand in parentheses, a space, the
-operator, another space, and then the second operand in parentheses.
-Do not include any spaces except where explicitly indicated.
-
-Include at least one unit test case per constructor and add your tests to main.
-
-Note: this implementation has the downside that it can become cluttered with
-unneccessary parentheses. AFTER you have completed the homework, if you would
-like to see an implementation of pretty-printing for Lu that uses a more
-full-featured typeclass and produces correspondingly more readable output,
-Stephanie Weirich's implementation is here
-https://www.seas.upenn.edu/~cis5520/current/hw/hw05/LuSyntax.html.
--}
-
-{-
-Delete Show from the "deriving" list for Statement and write a custom
-instance.
-
-For conditionals, show "if ", the guard in parentheses, " then ", the first
-substatement in parentheses, " else ", and finally the second substatement in
-parentheses.
-Do not include any spaces except those shown in the strings above.
-
-For a Return statement, just show the contained expression.
-
-Include at least one test per constructor and add your tests to main.
--}
-
-{-
-In a future homework, we will use the type constructor Data.Map.Map
-(https://hackage-content.haskell.org/package/containers-0.8/docs/Data-Map-Strict.html#t:Map),
-which represents a dictionary.
-
-This type already has an instance declaration for Show. (See what it looks like
-using GHCi!) We would like a different definition, but in Haskell there can
-only be one instance declaration per type/typeclass combination. There are
-several language extensions that would allow us to get around this, but for the
-purposes of this exercise we will just make a wrapper type, LuMap.
-
-Fill in the below instance of Show for LuMap. (You may need to incadlude conditions.)
-You can use any function from Data.Map.
-
-We have included tests to show the intended behavior. The output should consist of
-curly braces surrounding a comma-separated sequence of key/value pairs, with each
-pair consisting of the key, an equal sign, and then the value.
-
-You are welcome (but not required) to include additional tests.
--- -}
-
-newtype LuMap a b = LuMap {m :: Map a b}
-
-instance Show (LuMap a b) where
-  show (LuMap {m = x}) = error "unimplemented"
-
-testShowMap :: Test
-testShowMap =
-  "showMapValue_a"
-    ~: TestList
-      [ "empty" ~: show (LuMap {m = empty} :: LuMap Statement [Int]) ~?= "{}",
-        "short"
-          ~: show (LuMap {m = fromList [(1, "one"), (2, "two")]})
-          ~?= "{1=\"one\",2=\"two\"}",
-        "longer"
-          ~: show
-            ( LuMap
-                { m =
-                    fromList
-                      [ ('a', 97),
-                        ('b', 98),
-                        ('c', 99),
-                        ('d', 100),
-                        ('e', 101),
-                        ('f', 102),
-                        ('g', 103),
-                        ('h', 104)
-                      ]
-                }
-            )
-          ~?= "{'a'=97,'b'=98,'c'=99,'d'=100,'e'=101,'f'=102,'g'=103,'h'=104}"
-      ]
-
-{-
-Add an evaluation function for Statements.
-Your solution may reference our implementation of `eval` included at the bottom
-of this file.
-
-The semantics of Lu are that for the purposes of a conditional, an expression
-that evaluates to anything except NilVal and BoolVal False is considered
-"true". (Any expression that does evaluate to NilVal or BoolVal False is
-considered "false".) For Return statements, just return the result of
-evaluating the contained expression.
-
-Write at least 5 tests and include them in main. -}
-
-evalS :: Statement -> Value
-evalS = error "unimplemented"
 
 {-
 Write down the number of hours it took you to complete this homework. Please
-also write one question or comment you have about any of the material we have
-covered so far, not necessarily from this week.)
+also write one question you have about any of the material we have covered so
+far, not necessarily from this week.
+
+Please submit ONLY this file to Gradescope.
 -}
 
 time :: Double
@@ -227,7 +193,7 @@ check :: Test
 check =
   TestCase
     ( assertBool
-        "Fill in a time and question."
+        "fill in a time and question"
         ( time >= 0
             && question /= ""
         )
@@ -238,136 +204,44 @@ main = do
   _ <-
     runTestTT $
       TestList
-        [ -- add your tests here
-          check,
-          testEvalUop,
-          testEvalBop,
-          testEval,
-          testShowValue,
-          testShowUop,
-          testShowBop,
-          testShowMap
+        [ check,
+          testFmap,
+          testApply
         ]
   return ()
 
-{- Please make sure to submit only this file to Gradescope. -}
+-- Example maps
+funMap :: Map LuKey (Int -> Int)
+funMap = fromList [("addOne", (+ 1)), ("square", (^ 2)), ("neg", negate)]
 
-{-
-Credit: this homework is adapted from material created by Stephanie Weirich.
--}
+varMap :: Map LuKey Int
+varMap = fromList [("x", -4), ("y", 57), ("z", 0)]
 
-{- Provided functions -}
+emptyMap :: Map LuKey ()
+emptyMap = mempty -- this is from another typeclass, Monoid
 
-evalUop :: Uop -> Value -> Value
-evalUop Neg (IntVal i) = IntVal (-i)
-evalUop Not (BoolVal b) = BoolVal (not b)
-evalUop Len (StringVal s) = IntVal (length s)
-evalUop Len (BoolVal True) = IntVal 1
-evalUop Len (BoolVal False) = IntVal 0
-evalUop Len v = v
-evalUop _ _ = NilVal
+parseWithMap :: Map LuKey a -> LuParser a
+parseWithMap m = LuParser $ \s -> case successes s m of
+  x : xs -> x
+  _ -> Left $ "No value found for key " ++ show s ++ "."
+  where
+    tryParse :: String -> (LuKey, a) -> Either String (a, String)
+    tryParse s (k, v) = case stripPrefix k s of
+      Just s' -> Right (v, s')
+      Nothing -> Left (show k ++ " is not a prefix of " ++ show s ++ ".")
 
-evalBop :: Bop -> Value -> Value -> Value
-evalBop Plus (IntVal i1) (IntVal i2) = IntVal (i1 + i2)
-evalBop Minus (IntVal i1) (IntVal i2) = IntVal (i1 - i2)
-evalBop Times (IntVal i1) (IntVal i2) = IntVal (i1 * i2)
-evalBop Divide (IntVal i1) (IntVal i2) | i2 /= 0 = IntVal (i1 `div` i2)
-evalBop Eq v1 v2 = BoolVal (v1 == v2)
-evalBop Gt v1 v2 = BoolVal (v1 > v2)
-evalBop Ge v1 v2 = BoolVal (v1 >= v2)
-evalBop Lt v1 v2 = BoolVal (v1 < v2)
-evalBop Le v1 v2 = BoolVal (v1 <= v2)
-evalBop Concat (StringVal s1) (StringVal s2) = StringVal (s1 ++ s2)
-evalBop _ _ _ = NilVal
+    isLeft :: Either a b -> Bool
+    isLeft (Left _) = True
+    isLeft _ = False
 
-eval :: Expression -> Value
-eval (Val v) = v
-eval (Op1 u e) = evalUop u (eval e)
-eval (Op2 e1 b e2) = evalBop b (eval e1) (eval e2)
+    successes :: String -> Map LuKey a -> [Either String (a, String)]
+    successes s m = dropWhile isLeft (map (tryParse s) (toList m))
 
-testEvalUop :: Test
-testEvalUop =
-  "evalUop"
-    ~: TestList
-      [ evalUop Neg (IntVal 1) ~?= IntVal (-1),
-        evalUop Neg (IntVal 0) ~?= IntVal 0,
-        evalUop Neg (IntVal (-4)) ~?= IntVal 4,
-        evalUop Neg (BoolVal True) ~?= NilVal,
-        evalUop Neg (StringVal "") ~?= NilVal,
-        evalUop Neg NilVal ~?= NilVal,
-        evalUop Not (BoolVal True) ~?= BoolVal False,
-        evalUop Not (BoolVal False) ~?= BoolVal True,
-        evalUop Not (IntVal 0) ~?= NilVal,
-        evalUop Not (StringVal "False") ~?= NilVal,
-        evalUop Not NilVal ~?= NilVal,
-        evalUop Len (StringVal "abc") ~?= IntVal 3,
-        evalUop Len (IntVal (-5)) ~?= IntVal (-5),
-        evalUop Len (BoolVal True) ~?= IntVal 1,
-        evalUop Len (BoolVal False) ~?= IntVal 0,
-        evalUop Len NilVal ~?= NilVal
-      ]
+parseFunc :: LuParser (Int -> Int)
+parseFunc = parseWithMap funMap
 
-testEvalBop :: Test
-testEvalBop =
-  "evalBop"
-    ~: TestList
-      [ evalBop Plus (IntVal (-3)) (IntVal 1) ~?= IntVal (-2),
-        evalBop Plus (IntVal 4) (IntVal 0) ~?= IntVal 4,
-        evalBop Plus (BoolVal True) (IntVal 1) ~?= NilVal,
-        evalBop Plus (StringVal "y") (StringVal "x") ~?= NilVal,
-        evalBop Minus (IntVal (-3)) (IntVal 1) ~?= IntVal (-4),
-        evalBop Minus (IntVal 0) (IntVal (-1)) ~?= IntVal 1,
-        evalBop Minus (BoolVal False) (IntVal 1) ~?= NilVal,
-        evalBop Minus (StringVal "y") (StringVal "x") ~?= NilVal,
-        evalBop Times (IntVal (-3)) (IntVal 1) ~?= IntVal (-3),
-        evalBop Times (IntVal (-3)) (IntVal 0) ~?= IntVal 0,
-        evalBop Times (BoolVal False) (IntVal 1) ~?= NilVal,
-        evalBop Times (StringVal "y") (StringVal "x") ~?= NilVal,
-        evalBop Divide (IntVal (-3)) (IntVal 1) ~?= IntVal (-3),
-        evalBop Divide (IntVal (-3)) (IntVal 2) ~?= IntVal (-2),
-        evalBop Divide (IntVal 3) (IntVal (-4)) ~?= IntVal (-1),
-        evalBop Divide (IntVal 3) (IntVal 2) ~?= IntVal 1,
-        evalBop Divide (IntVal (-3)) (IntVal 0) ~?= NilVal,
-        evalBop Divide (BoolVal False) (IntVal 1) ~?= NilVal,
-        evalBop Divide (StringVal "y") (StringVal "x") ~?= NilVal,
-        evalBop Eq (IntVal 0) NilVal ~?= BoolVal False,
-        evalBop Eq (IntVal (-3)) (IntVal 3) ~?= BoolVal False,
-        evalBop Eq (IntVal (-3)) (IntVal (-3)) ~?= BoolVal True,
-        evalBop Gt (IntVal 500) (StringVal "x") ~?= BoolVal False,
-        evalBop Gt (IntVal (-3)) (IntVal (-3)) ~?= BoolVal False,
-        evalBop Gt (IntVal (-4)) (IntVal 3) ~?= BoolVal False,
-        evalBop Gt (IntVal 1) NilVal ~?= BoolVal True,
-        evalBop Ge (IntVal 0) (StringVal "x") ~?= BoolVal False,
-        evalBop Ge (IntVal (-3)) (IntVal 3) ~?= BoolVal False,
-        evalBop Ge (IntVal (-3)) (IntVal (-3)) ~?= BoolVal True,
-        evalBop Ge (IntVal 10) NilVal ~?= BoolVal True,
-        evalBop Lt (IntVal 5) (StringVal "a") ~?= BoolVal True,
-        evalBop Lt (IntVal (-7)) (IntVal 0) ~?= BoolVal True,
-        evalBop Lt (IntVal 4) (IntVal 4) ~?= BoolVal False,
-        evalBop Lt (IntVal 8) NilVal ~?= BoolVal False,
-        evalBop Le (IntVal 2) (StringVal "z") ~?= BoolVal True,
-        evalBop Le (IntVal (-4)) (IntVal (-4)) ~?= BoolVal True,
-        evalBop Le (IntVal (-2)) (IntVal 3) ~?= BoolVal True,
-        evalBop Le (IntVal (-9)) NilVal ~?= BoolVal False,
-        evalBop Concat (IntVal (-3)) (IntVal 1) ~?= NilVal,
-        evalBop Concat (StringVal "a") (StringVal "bc") ~?= StringVal "abc"
-      ]
+parseVar :: LuParser Int
+parseVar = parseWithMap varMap
 
-testEval :: Test
-testEval =
-  "eval"
-    ~: TestList
-      [ eval (Val (IntVal 1)) ~?= IntVal 1,
-        eval (Op1 Neg (Val (IntVal 2))) ~?= IntVal (-2),
-        eval (Op2 (Val (IntVal 0)) Plus (Val (IntVal 2))) ~?= IntVal 2,
-        eval
-          ( Op1
-              Not
-              ( Op2
-                  (Op1 Neg (Val $ IntVal 3))
-                  Gt
-                  (Op1 Len (Val $ BoolVal False))
-              )
-          )
-          ~?= BoolVal True
-      ]
+parseFail :: LuParser a
+parseFail = LuParser $ \s -> Left "This parser always fails."
