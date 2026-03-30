@@ -2,6 +2,7 @@
 
 module Solutions where
 
+import Data.Bifoldable (bifoldl1)
 import Data.List (stripPrefix)
 import Data.Map (Map, fromList, lookup, toList)
 import Test.HUnit
@@ -11,6 +12,7 @@ import Test.HUnit
     (~:),
     (~?=),
   )
+import Prelude hiding (lookup)
 
 {-
 This week we are going to begin exploring parsing.
@@ -52,7 +54,17 @@ type LuParseError = String
 type LuKey = String
 
 getVal :: (Show a, Ord a) => a -> Map a b -> Either LuParseError b
-getVal = undefined
+getVal key map = case lookup key map of
+  Just b -> Right b
+  Nothing -> Left $ "key " ++ show key ++ " not found"
+
+testGetVal :: Test
+testGetVal =
+  "getVal"
+    ~: TestList
+      [ "not exist" ~: getVal 3 (fromList [(1, 'a'), (2, 'b')]) ~?= Left "key 3 not found",
+        "exists" ~: getVal 1 (fromList [(1, 'a'), (2, 'b')]) ~?= Right 'a'
+      ]
 
 getAndApp ::
   Map LuKey (a -> b) ->
@@ -60,7 +72,23 @@ getAndApp ::
   LuKey ->
   LuKey ->
   Either LuParseError b
-getAndApp = undefined
+-- getAndApp func_map key_map func_map_key key_map_key = case (getVal func_map_key func_map, getVal key_map_key key_map) of
+--   (Left _, _) -> Left "function not found"
+--   (Right func, Left _) -> Left "value not found"
+--   (Right func, Right val) -> Right (func val)
+
+getAndApp w x y z = getVal y w <*> getVal z x
+
+testGetAndApp :: Test
+testGetAndApp =
+  "getAndApp"
+    ~: TestList
+      [ "func not exist" ~: getAndApp funMap varMap "foo" "x" ~?= Left "key \"foo\" not found",
+        "both not exist" ~: getAndApp funMap varMap "foo" "bar" ~?= Left "key \"foo\" not found",
+        "function input not exist (but func does)" ~: getAndApp funMap varMap "addOne" "bar" ~?= Left "key \"bar\" not found",
+        "both exist fine 1" ~: getAndApp funMap varMap "addOne" "x" ~?= Right (-3),
+        "both exist fine 2" ~: getAndApp funMap varMap "neg" "y" ~?= Right (-57)
+      ]
 
 {-
 Exercise 2
@@ -104,10 +132,12 @@ newtype LuParser a = LuParser {parse :: String -> Either LuParseError (a, String
 
 instance Functor LuParser where
   fmap :: (a -> b) -> LuParser a -> LuParser b
-  fmap f p = LuParser $ \s -> undefined
+  fmap f p = LuParser $ \s -> case parse p s of
+    Left err_str -> Left err_str
+    Right tup -> Right (mapFst f tup)
     where
       mapFst :: (a -> b) -> (a, c) -> (b, c)
-      mapFst = undefined -- map over the first element in a pair
+      mapFst f (fst, snd) = (f fst, snd)
 
 testFmap :: Test
 testFmap =
@@ -116,7 +146,9 @@ testFmap =
       [ "idOK" ~: parse (fmap id parseVar) "x" ~?= parse parseVar "x",
         "idFail" ~: parse (fmap id parseVar) "foo" ~?= parse parseVar "foo",
         "square" ~: parse (fmap (^ 2) parseVar) "xyz" ~?= Right (16, "yz"),
-        "addOne" ~: parse (fmap (+ 1) parseVar) "yz" ~?= Right (58, "z")
+        "addOne" ~: parse (fmap (+ 1) parseVar) "yz" ~?= Right (58, "z"),
+        "neg" ~: parse (fmap (0 -) parseVar) "z" ~?= Right (0, ""),
+        "func" ~: fmap (\(f, s) -> (f 1, s)) (parse (fmap (\x -> x . x) (parseWithMap (fromList [("a", (* (-2)))]))) "aa") ~?= Right (4, "a")
       ]
 
 {-
@@ -150,12 +182,22 @@ write more.
 
 instance Applicative LuParser where
   pure :: a -> LuParser a
-  pure = undefined
+  pure output = LuParser $ \s -> Right (output, s)
 
   (<*>) :: LuParser (a -> b) -> LuParser a -> LuParser b
   p1 <*> p2 = LuParser $ \s -> case parse p1 s of
-    Left e -> undefined
-    Right (f, s') -> undefined
+    Left e -> Left e
+    Right (f, s') -> case parse p2 s' of
+      Left e' -> Left e'
+      Right (v, s'') -> Right (f v, s'')
+
+testPure :: Test
+testPure =
+  "pure"
+    ~: TestList
+      [ "basic" ~: parse (pure 5) "a" ~?= Right (5, "a"),
+        "basic 2" ~: parse (pure "word") "hello" ~?= Right ("word", "hello")
+      ]
 
 testApply :: Test
 testApply =
@@ -184,10 +226,10 @@ Please submit ONLY this file to Gradescope.
 -}
 
 time :: Double
-time = undefined
+time = 2
 
 question :: String
-question = undefined
+question = "Why is this applicative class so important that it's a entire builtin class? I'm not super sure what the benefits of pure or <*> are in programming. "
 
 check :: Test
 check =
@@ -206,7 +248,10 @@ main = do
       TestList
         [ check,
           testFmap,
-          testApply
+          testApply,
+          testGetVal,
+          testGetAndApp,
+          testPure
         ]
   return ()
 
