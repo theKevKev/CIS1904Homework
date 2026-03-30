@@ -16,6 +16,10 @@ data Tree a
 Write a Functor instance for Tree.
 -}
 
+instance Functor Tree where
+  fmap _ Leaf = Leaf
+  fmap f (Node l y r) = Node (fmap f l) (f y) (fmap f r)
+
 {-
 Use fmap to implement a function that adds three to every
 element in the tree. For example,
@@ -26,6 +30,9 @@ should become Branch (Branch Leaf 4 Leaf) 5 (Branch Leaf 6 Leaf)
 Your solution should work for more than just Tree Int!
 -}
 
+add3tree :: (Num a) => Tree a -> Tree a
+add3tree = fmap (+ 3)
+
 {-
 To practice with the `Functor` type class, implement `fconst` and `unzip`.
 
@@ -33,16 +40,20 @@ Any (safe) implementation that type checks will be correct!
 -}
 
 fconst :: (Functor f) => b -> f a -> f b
-fconst = error "unimplemented"
+fconst c = fmap . const c
 
 unzip :: (Functor f) => f (a, b) -> (f a, f b)
-unzip = error "unimplemented"
+unzip x = (fmap fst x, fmap snd x)
 
 -- Foldable
 
 {-
 Write a Foldable instance for Tree.
 -}
+
+instance Foldable Tree where
+  foldr _ z Leaf = z
+  foldr f z (Node l x r) = foldr f z (f x (foldr f z r)) l
 
 {-
 Use foldr to implement a function that flattens a
@@ -51,6 +62,9 @@ tree into a list. For example,
 Branch (Branch Leaf 1 Leaf) 2 (Branch Leaf 3 Leaf)
 should become [1, 2, 3]
 -}
+
+flatten :: Tree a -> [a]
+flatten x = foldr (:) [] x
 
 -- Rose trees
 
@@ -73,7 +87,7 @@ data RoseTree a = NodeR a [RoseTree a]
   deriving (Eq, Show)
 
 instance Functor RoseTree where
-  fmap = error "unimplemented"
+  fmap f (NodeR x children) = NodeR (f x) (map (fmap f) children)
 
 {-
 Implement a `Foldable` instance for `RoseTree`.
