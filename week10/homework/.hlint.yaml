@@ -1,0 +1,8 @@
+- ignore: {name: "Use $>"}
+- ignore: {name: "Replace case with fromMaybe"}
+- ignore: {name: "Use lambda-case"}
+- ignore: {name: "Use >=>"}
+- ignore: {name: "Use asum"}
+- ignore: {name: "Use Control.Monad.void"}
+- ignore: {name: "Use head"}
+- ignore: {name: "Use minimum"}
