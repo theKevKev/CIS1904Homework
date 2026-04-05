@@ -11,7 +11,7 @@ safeHead (x : _) = Just x
 safeHead _ = Nothing
 
 safeHeadMaybe :: Maybe [a] -> Maybe a
-safeHeadMaybe = undefined
+safeHeadMaybe = foo safeHead
 
 bar :: (Applicative f) => f (c -> d) -> f c -> f d
 bar g x = undefined
@@ -22,6 +22,15 @@ addFirsts xs ys = case safeHead xs of
   Just x -> case safeHead ys of
     Nothing -> Nothing
     Just y -> Just (x + y)
+
+addFirsts' :: [Int] -> [Int] -> Maybe Int
+addFirsts' xs ys = safeHead xs >>= (\x -> safeHead ys >>= (\y -> return (x + y)))
+
+addFirsts'' :: [Int] -> [Int] -> Maybe Int
+addFirsts'' xs ys = do
+  h1 <- safeHead xs
+  h2 <- safeHead ys
+  return (h1 + h2)
 
 addFirstsEven :: [Int] -> [Int] -> Maybe Int
 addFirstsEven xs ys = undefined

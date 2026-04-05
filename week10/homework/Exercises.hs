@@ -1,14 +1,15 @@
 {-# LANGUAGE InstanceSigs #-}
+
 {- HLINT ignore "Use lambda-case" -}
 
 module Exercises where
 
-import Control.Applicative (Alternative(..))
+import Control.Applicative (Alternative (..))
+import Control.Monad (guard)
+import Data.Char
 import Data.List (stripPrefix)
 import Data.Map (Map, fromList, toList)
-import Data.Char
 import Test.HUnit
-import Control.Monad (guard)
 
 {-
 Over the next few homeworks, we will continue exploring parsing.
@@ -19,6 +20,26 @@ Recall our LuParser and LuParseError types.
 type LuParseError = String
 
 newtype LuParser a = LuParser {parse :: String -> Either LuParseError (a, String)}
+
+instance Functor LuParser where
+  fmap :: (a -> b) -> LuParser a -> LuParser b
+  fmap f p = LuParser $ \s -> case parse p s of
+    Left err_str -> Left err_str
+    Right tup -> Right (mapFst f tup)
+    where
+      mapFst :: (a -> b) -> (a, c) -> (b, c)
+      mapFst f (fst, snd) = (f fst, snd)
+
+instance Applicative LuParser where
+  pure :: a -> LuParser a
+  pure output = LuParser $ \s -> Right (output, s)
+
+  (<*>) :: LuParser (a -> b) -> LuParser a -> LuParser b
+  p1 <*> p2 = LuParser $ \s -> case parse p1 s of
+    Left e -> Left e
+    Right (f, s') -> case parse p2 s' of
+      Left e' -> Left e'
+      Right (v, s'') -> Right (f v, s'')
 
 {-
 First, copy in your Functor and Applicative instances for LuParser from
@@ -47,6 +68,14 @@ the types. Look at what type you need, and consider the different ways you
 have available of constructing something of that type.
 -}
 
+instance Monad LuParser where
+  return :: a -> LuParser a
+  return = pure
+
+  (>>=) :: LuParser a -> (a -> LuParser b) -> LuParser b
+  p >>= func = LuParser $ \s -> case parse p s of
+    Left err_str -> Left err_str
+    Right (result, rem_string) -> parse (func result) rem_string
 
 {-
 As we discussed last week, testing equality of parsers (and of functions
@@ -59,6 +88,16 @@ if you like include property-based tests that do not take parsers as inputs.)
 Be sure to add your unit tests to main.
 -}
 
+testMonad :: Test
+testMonad =
+  "monad implementation"
+    ~: TestList
+      [ "return" ~: parse (return 42) "hello" ~?= Right (42, "hello"),
+        "bind 1" ~: parse (parseVar >>= \x -> return (x * 2)) "x" ~?= Right (-8, ""),
+        "bind 2" ~: parse (parseFail >>= \x -> return (x + 1)) "abc" ~?= Left "This parser always fails.",
+        "bind 3" ~: parse (parseVar >>= \x -> return (x + 1)) "y" ~?= Right (13, ""),
+        "bind 4" ~: parse (parseVar >>= parseRevDivAux varMap) "xy" ~?= Right (-3, "")
+      ]
 
 {-
 Write a function that adds a filter to a parser. That is, the resulting parser
@@ -74,7 +113,20 @@ Include at least two tests. (Be sure to add all unit tests to main.)
 -}
 
 filterParse :: (Show a) => (a -> Bool) -> LuParser a -> LuParser a
-filterParse = undefined
+filterParse func p = LuParser $ \s -> do
+  (out, rem) <- parse p s
+  if func out
+    then return (out, rem)
+    else Left ("Predicate failed on: " ++ show out)
+
+testFilterParse :: Test
+testFilterParse =
+  "testFilterParse"
+    ~: TestList
+      [ "no input" ~: parse (filterParse even parseVar) "" ~?= Left "No value found for key \"\".",
+        "filter even" ~: parse (filterParse even parseVar) "x" ~?= Right (-4, ""),
+        "filter odd" ~: parse (filterParse (\x -> x `mod` 6 == 0) parseVar) "x" ~?= Left "Predicate failed on: -4"
+      ]
 
 {-
 Write a function that, given a predicate over chars, parses any input char that
@@ -88,7 +140,19 @@ error.)
 Include at least three tests. (Be sure to add all unit tests to main.)
 -}
 charWhere :: (Char -> Bool) -> LuParser Char
-charWhere = undefined
+charWhere func = LuParser $ \s -> case s of
+  [] -> Left "No characters left."
+  (x : xs) -> if func x then Right (x, xs) else Left ("Predicate failed on: " ++ show x)
+
+testCharWhere :: Test
+testCharWhere =
+  "testCharWhere"
+    ~: TestList
+      [ "empty string" ~: parse (charWhere isAlpha) "" ~?= Left "No characters left.",
+        "match" ~: parse (charWhere isAlpha) "abc" ~?= Right ('a', "bc"),
+        "no match" ~: parse (charWhere isAlpha) "1bc" ~?= Left "Predicate failed on: '1'",
+        "digit match" ~: parse (charWhere isDigit) "3ab" ~?= Right ('3', "ab")
+      ]
 
 {-
 Write a function that parses exactly the input char, as itself.
@@ -96,7 +160,15 @@ Write a function that parses exactly the input char, as itself.
 Include at least two tests. (Be sure to add all unit tests to main.)
 -}
 char :: Char -> LuParser Char
-char = undefined
+char c = charWhere (== c)
+
+testChar :: Test
+testChar =
+  "testChar"
+    ~: TestList
+      [ "match" ~: parse (char 'a') "abc" ~?= Right ('a', "bc"),
+        "no match" ~: parse (char 'z') "abc" ~?= Left "Predicate failed on: 'a'"
+      ]
 
 {-
 Write a function that parses exactly the input string, as itself.
@@ -110,7 +182,17 @@ Functor and Applicative, too.
 Include at least four tests. (Be sure to add all unit tests to main.)
 -}
 string :: String -> LuParser String
-string = undefined
+string = mapM char
+
+testString :: Test
+testString =
+  "testString"
+    ~: TestList
+      [ "empty" ~: parse (string "") "abc" ~?= Right ("", "abc"),
+        "full match" ~: parse (string "abc") "abc" ~?= Right ("abc", ""),
+        "prefix match" ~: parse (string "ab") "abc" ~?= Right ("ab", "c"),
+        "no match" ~: parse (string "xyz") "abc" ~?= Left "Predicate failed on: 'a'"
+      ]
 
 {-
 Write down the number of hours it took you to complete this homework. Please
@@ -121,10 +203,10 @@ Please submit ONLY this file to Gradescope.
 -}
 
 time :: Double
-time = undefined
+time = 1.5
 
 question :: String
-question = undefined
+question = "I was really confused about whether I did char and string correctly, like my best guess was that it's creating a parser that expects a certain input, just because my first guess would have been equivalent to just the pure/return function. Basically my question is: What's the point of making this char parser or string parser? When would you want your parser to fail upon not seeing a prespecified string rather than having a real parser that reads the input? Like if you already have the prespecified string then are you just parsing to see if there's a match? "
 
 check :: Test
 check =
@@ -141,7 +223,12 @@ main = do
   _ <-
     runTestTT $
       TestList
-        [ check
+        [ check,
+          testMonad,
+          testFilterParse,
+          testCharWhere,
+          testChar,
+          testString
         ]
   return ()
 

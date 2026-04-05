@@ -3,5 +3,6 @@
     "typescript.suggest.autoImports": false,
     "chat.disableAIFeatures": true,
     "chat.extensionUnification.enabled": false,
-    "C_Cpp.copilotHover": "disabled"
+    "C_Cpp.copilotHover": "disabled",
+    "haskell.toolchain": "stack"
 }
