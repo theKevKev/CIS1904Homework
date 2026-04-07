@@ -1,0 +1,11 @@
+HLS not working in VSCode for a Haskell/Stack project — fix checklist:
+My Haskell project uses Stack (with a stack.yaml specifying compiler: ghc-9.4.8), but HLS isn't giving type errors or hints in VSCode. Please fix it by checking each of the following:
+1. HLS wrapper version — ~/.ghcup/bin/haskell-language-server-wrapper must point to an HLS version that supports the project's GHC. Check with ls -la ~/.ghcup/bin/haskell-language-server-wrapper and ls ~/.ghcup/hls/<version>/bin/ to confirm the right GHC-versioned binary exists. Update the symlink if needed: ln -sf ~/.ghcup/hls/<version>/bin/haskell-language-server-wrapper ~/.ghcup/bin/haskell-language-server-wrapper
+2. Versioned HLS binaries in PATH — The extension looks for haskell-language-server-<ghcversion> directly in PATH. Symlink the needed versions: ln -sf ~/.ghcup/hls/<version>/bin/haskell-language-server-<ghcversion> ~/.ghcup/bin/haskell-language-server-<ghcversion>. Also fix the generic symlink: ln -sf ~/.ghcup/hls/<version>/bin/haskell-language-server-wrapper ~/.ghcup/bin/haskell-language-server
+3. VSCode user settings (~/Library/Application Support/Code/User/settings.json) — Make sure haskell.toolchain doesn't pin HLS to an old version. It should match the HLS version from step 1.
+4. Cradle type — HLS auto-detects Cabal if a .cabal file exists, even when the project uses Stack. This causes a GHC version mismatch because Cabal picks the system GHC instead of Stack's GHC. Fix by creating hie.yaml in the project root:  cradle:
+5.   stack:
+6.  
+7. Check the HLS log if things still fail — in VSCode go to Output panel → select "Haskell (foldername)" from the dropdown. The log will show exactly which GHC version was detected and why it's crashing.
+
+The hie.yaml in step 4 was the critical fix — without it, HLS ignores stack.yaml and uses Cabal + system GHC.

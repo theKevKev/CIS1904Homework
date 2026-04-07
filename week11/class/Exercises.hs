@@ -11,7 +11,7 @@ Exercise:
 Write first xs, then ys to the terminal.
 -}
 putTwo :: String -> String -> IO ()
-putTwo xs ys = undefined
+putTwo xs ys = putStrLn xs >> putStrLn ys
 
 {-
 Exercise:
@@ -20,7 +20,13 @@ Make sure to check that it works using the terminal.
 -}
 
 addTwo :: IO ()
-addTwo = undefined
+addTwo = do
+  putStr "First Number: "
+  x <- readLn
+  putStr "Second Number: "
+  y <- readLn
+  putStr "Final Sum: "
+  print (x + y)
 
 {-
 Exercise:
@@ -33,7 +39,20 @@ maxBound and minBound.
 -}
 
 guessGame :: Int -> IO ()
-guessGame = undefined
+guessGame target = do
+  putStr "Guess a Number: "
+  guess <- readLn
+  if guess < target
+    then do
+      print "lower"
+      guessGame target
+    else
+      if guess > target
+        then do
+          print "higher"
+          guessGame target
+        else
+          print "correct!"
 
 {-
 Exercise:
@@ -56,14 +75,17 @@ in `Exercises.hs`.
 
 3. `writeFile` will overwrite the contents of an existing file.-}
 
+testfunc :: IO ()
+testfunc = writeFile "test.txt" "new words to write again\n"
+
 q1 :: Bool
-q1 = undefined
+q1 = True
 
 q2 :: Bool
-q2 = undefined
+q2 = False
 
 q3 :: Bool
-q3 = undefined
+q3 = True
 
 {-
 Exercise
@@ -87,7 +109,9 @@ You should use mapM.
 -}
 
 lengthFile :: FilePath -> IO Int
-lengthFile = undefined
+lengthFile path = do
+  text <- readFile path
+  return (length text)
 
 testLengthFile :: Test
 testLengthFile =
@@ -98,7 +122,9 @@ testLengthFile =
        ]
 
 concatFiles :: [FilePath] -> FilePath -> IO ()
-concatFiles = undefined
+concatFiles paths outputPath = do
+  text <- mapM readFile paths
+  writeFile outputPath (concat text)
 
 testConcatFiles :: Test
 testConcatFiles =
@@ -110,7 +136,9 @@ testConcatFiles =
        ]
 
 parseChar :: State String (Maybe Char)
-parseChar = undefined
+parseChar = state $ \s -> case s of
+  [] -> (Nothing, s)
+  x : xs -> (Just x, xs)
 
 {-
 Exercise
