@@ -47,23 +47,66 @@ write parsers for:
 Write at least two tests per parser. Be sure to add all tests to main.
 -}
 eof :: LuParser ()
-eof = undefined
+eof = LuParser $ \s -> case s of
+  [] -> Right ((), s)
+  x : xs -> Left "Not yet end of file. "
 
 -- | Parsers for specific sorts of characters
 alpha :: LuParser Char
-alpha = undefined
+alpha = charWhere isAlpha
 
 digit :: LuParser Char
-digit = undefined
+digit = charWhere isDigit
 
 upper :: LuParser Char
-upper = undefined
+upper = charWhere isUpper
 
 lower :: LuParser Char
-lower = undefined
+lower = charWhere isLower
 
 space :: LuParser Char
-space = undefined
+space = charWhere isSpace
+
+testParsers :: Test
+testParsers =
+  "testParsers"
+    ~: TestList
+      [ "test eof"
+          ~: TestList
+            [ "eof success" ~: parse eof "" ~?= Right ((), ""),
+              "eof failure" ~: parse eof "words" ~?= Left "Not yet end of file. "
+            ],
+        "test alpha"
+          ~: TestList
+            [ "alpha letter" ~: parse alpha "abc" ~?= Right ('a', "bc"),
+              "alpha non-letter" ~: parse alpha "123" ~?= Left "Predicate failed on: '1'"
+            ],
+        "test digit"
+          ~: TestList
+            [ "digit number" ~: parse digit "123" ~?= Right ('1', "23"),
+              "digit non-number" ~: parse digit "abc" ~?= Left "Predicate failed on: 'a'"
+            ],
+        "test upper"
+          ~: TestList
+            [ "upper uppercase" ~: parse upper "ABC" ~?= Right ('A', "BC"),
+              "upper lowercase" ~: parse upper "abc" ~?= Left "Predicate failed on: 'a'"
+            ],
+        "test lower"
+          ~: TestList
+            [ "lower lowercase" ~: parse lower "abc" ~?= Right ('a', "bc"),
+              "lower uppercase" ~: parse lower "ABC" ~?= Left "Predicate failed on: 'A'"
+            ],
+        "test space"
+          ~: TestList
+            [ "space space char" ~: parse space " abc" ~?= Right (' ', "abc"),
+              "space tab char" ~: parse space "\tabc" ~?= Right ('\t', "abc"),
+              "space tab char" ~: parse space "\nabc" ~?= Right ('\n', "abc"),
+              "space tab char" ~: parse space "\rabc" ~?= Right ('\r', "abc"),
+              "space tab char" ~: parse space "\fabc" ~?= Right ('\f', "abc"),
+              "space tab char" ~: parse space "\vabc" ~?= Right ('\v', "abc"),
+              "space non-space" ~: parse space "abc" ~?= Left "Predicate failed on: 'a'"
+            ]
+      ]
 
 {-
 Exercise 2
@@ -83,7 +126,9 @@ required to add more. Note that if you chose different error messages
 for some of your functions, you may need to edit the tests.
 -}
 orP :: LuParser a -> LuParser a -> LuParser a
-orP = undefined
+orP parser1 parser2 = LuParser $ \s -> case parse parser1 s of
+  Left err_str -> parse parser2 s
+  Right output -> Right output
 
 testOrP :: Test
 testOrP =
@@ -98,7 +143,11 @@ testOrP =
       ]
 
 betweenP :: LuParser a -> LuParser b -> LuParser c -> LuParser b
-betweenP = undefined
+betweenP p1 p2 p3 = do
+  _ <- p1
+  o2 <- p2
+  _ <- p3
+  return o2
 
 testBetweenP :: Test
 testBetweenP =
@@ -110,13 +159,13 @@ testBetweenP =
         "failFirst"
           ~: parse (betweenP (char '[') digit (char ']')) "(3]"
           ~?= Left
-            "Value '(' was filtered out.",
+            "Predicate failed on: '('",
         "failMiddle"
           ~: parse (betweenP (char '{') upper (char '}')) "{x}"
-          ~?= Left "Value 'x' was filtered out.",
+          ~?= Left "Predicate failed on: 'x'",
         "failLast"
           ~: parse (betweenP (char '<') lower (char '>')) "<x"
-          ~?= Left "Cannot parse empty string as character."
+          ~?= Left "No characters left."
       ]
 
 {-
@@ -138,7 +187,7 @@ Note that if you chose different error messages for some of your functions,
 you may need to edit the tests.
 -}
 parseAll :: LuParser a -> LuParser a
-parseAll = undefined
+parseAll p = betweenP (pure ()) p eof
 
 testParseAll :: Test
 testParseAll =
@@ -148,10 +197,10 @@ testParseAll =
         "success2" ~: parse (parseAll eof) "" ~?= Right ((), ""),
         "failure1"
           ~: parse (parseAll upper) "XY"
-          ~?= Left "Cannot parse nonempty string Y as EOF.",
+          ~?= Left "Not yet end of file. ",
         "failure2"
           ~: parse (parseAll upper) "xY"
-          ~?= Left "Value 'x' was filtered out."
+          ~?= Left "Predicate failed on: 'x'"
       ]
 
 parseAllFromFile :: LuParser a -> String -> IO (Either LuParseError a)
@@ -159,11 +208,14 @@ parseAllFromFile p filename = catchIOError (action p) handler
   where
     -- read from file and parse
     action :: LuParser b -> IO (Either LuParseError b)
-    action = undefined
+    action p =
+      readFile filename >>= \s -> case parse (parseAll p) s of
+        Left error -> return (Left error)
+        Right (b, rem) -> return (Right b)
 
     -- handle I/O exceptions
     handler :: IOError -> IO (Either LuParseError a)
-    handler = undefined
+    handler err = return (Left (show err))
 
 testParseAllFromFile :: IO Test
 testParseAllFromFile = do
@@ -178,10 +230,10 @@ testParseAllFromFile = do
           ~?= Left "foo: openFile: does not exist (No such file or directory)",
         "noParse"
           ~: noParse
-          ~?= Left "Value 'x' was filtered out.",
+          ~?= Left "Predicate failed on: 'x'",
         "notAll"
           ~: notAll
-          ~?= Left "Cannot parse nonempty string y as EOF.",
+          ~?= Left "Not yet end of file. ",
         "success" ~: success ~?= Right 'x'
       ]
 
@@ -194,10 +246,10 @@ far, not necessarily from this week.
 -}
 
 time :: Double
-time = undefined
+time = 1
 
 question :: String
-question = undefined
+question = "were monads a thing first or was imperative programming first and then people found a way to describe imperative programming in functional paradigms with monads? "
 
 check :: Test
 check =
@@ -215,7 +267,8 @@ main = do
   _ <-
     runTestTT $
       TestList
-        [ testOrP,
+        [ testParsers,
+          testOrP,
           testBetweenP,
           testParseAll,
           tests,
@@ -227,8 +280,42 @@ main = do
 
 -- COPY CODE FROM LAST WEEK HERE
 
+instance Functor LuParser where
+  fmap :: (a -> b) -> LuParser a -> LuParser b
+  fmap f p = LuParser $ \s -> case parse p s of
+    Left err_str -> Left err_str
+    Right tup -> Right (mapFst f tup)
+    where
+      mapFst :: (a -> b) -> (a, c) -> (b, c)
+      mapFst f (fst, snd) = (f fst, snd)
+
+instance Applicative LuParser where
+  pure :: a -> LuParser a
+  pure output = LuParser $ \s -> Right (output, s)
+
+  (<*>) :: LuParser (a -> b) -> LuParser a -> LuParser b
+  p1 <*> p2 = LuParser $ \s -> case parse p1 s of
+    Left e -> Left e
+    Right (f, s') -> case parse p2 s' of
+      Left e' -> Left e'
+      Right (v, s'') -> Right (f v, s'')
+
+instance Monad LuParser where
+  return :: a -> LuParser a
+  return = pure
+
+  (>>=) :: LuParser a -> (a -> LuParser b) -> LuParser b
+  p >>= func = LuParser $ \s -> case parse p s of
+    Left err_str -> Left err_str
+    Right (result, rem_string) -> parse (func result) rem_string
+
+charWhere :: (Char -> Bool) -> LuParser Char
+charWhere func = LuParser $ \s -> case s of
+  [] -> Left "No characters left."
+  (x : xs) -> if func x then Right (x, xs) else Left ("Predicate failed on: " ++ show x)
+
 char :: Char -> LuParser Char
-char = undefined -- referenced in tests, replace with your definition
+char c = charWhere (== c)
 
 ------------------------------------------------------------------------
 
