@@ -282,12 +282,7 @@ main = do
 
 instance Functor LuParser where
   fmap :: (a -> b) -> LuParser a -> LuParser b
-  fmap f p = LuParser $ \s -> case parse p s of
-    Left err_str -> Left err_str
-    Right tup -> Right (mapFst f tup)
-    where
-      mapFst :: (a -> b) -> (a, c) -> (b, c)
-      mapFst f (fst, snd) = (f fst, snd)
+  fmap f p = LuParser $ \s -> fmap (\(out, rem) -> (f out, rem)) (parse p s)
 
 instance Applicative LuParser where
   pure :: a -> LuParser a
