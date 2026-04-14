@@ -1,0 +1,35 @@
+cabal-version: 2.4
+name:          micro-haskell
+version:       0.1.0.0
+synopsis:      Microgpt implementation in Haskell
+
+executable micro
+  main-is:          Main.hs
+  other-modules:    Micro
+  build-depends:    base >= 4.14 && < 5,
+                    containers,
+                    directory,
+                    random,
+                    mwc-random,
+                    vector
+  hs-source-dirs:   src
+  default-language: Haskell2010
+
+executable cps-exercise
+  main-is:          CPSExercise.hs
+  build-depends:    base >= 4.14 && < 5
+  hs-source-dirs:   src
+  default-language: Haskell2010
+
+executable micro-exercise
+  main-is:          MainExercise.hs
+  other-modules:    MicroExercise
+  build-depends:    base >= 4.14 && < 5,
+                    containers,
+                    directory,
+                    random,
+                    mwc-random,
+                    vector
+  hs-source-dirs:   src
+  default-language: Haskell2010
+
