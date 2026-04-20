@@ -44,10 +44,29 @@ parentheses.
 Write at least two tests for each and add them to `main`.
 -}
 keywordP :: String -> a -> LuParser a
-keywordP = undefined
+keywordP keyword value = fmap (const value) (string keyword)
 
 parens :: LuParser a -> LuParser a
-parens = undefined
+parens p = betweenP (char '(') p (char ')')
+
+testKeywordP :: Test
+testKeywordP =
+  "keywordP"
+    ~: TestList
+      [ "example 1" ~: parse (keywordP "hit" 3) "hittwo" ~?= Right (3, "two"),
+        "example 2" ~: parse (keywordP "xyzxyz" 12) "xyzxy3" ~?= Left "Predicate failed on: '3'"
+      ]
+
+testParens :: Test
+testParens =
+  "testParens"
+    ~: TestList
+      [ "success with remainder" ~: parse (parens (char 'x')) "(x)rest" ~?= Right ('x', "rest"),
+        "success exact" ~: parse (parens (string "hi")) "(hi)" ~?= Right ("hi", ""),
+        "missing open paren" ~: parse (parens (char 'x')) "x)" ~?= Left "Predicate failed on: 'x'",
+        "missing close paren" ~: parse (parens (char 'x')) "(x" ~?= Left "No characters left.",
+        "wrong inner content" ~: parse (parens (char 'x')) "(y)" ~?= Left "Predicate failed on: 'y'"
+      ]
 
 {-
 Exercise 2
@@ -70,26 +89,54 @@ Write at least two tests per constructor for `valueP` and add them to `main`.
 -}
 
 listP :: LuParser a -> LuParser [a]
-listP = undefined
+listP p = orP (neListP p) (pure [])
   where
     -- parse a nonempty list of elements matched by p
     neListP :: LuParser a -> LuParser [a]
-    neListP = undefined
+    neListP p' = do
+      out <- p'
+      rem <- listP p'
+      return (out : rem)
+
+testListP :: Test
+testListP =
+  "listP"
+    ~: TestList
+      [ "zero matches" ~: parse (listP (char 'c')) "xyz" ~?= Right ([], "xyz"),
+        "single match" ~: parse (listP (char 'c')) "cx" ~?= Right ("c", "x"),
+        "multiple matches" ~: parse (listP (char 'c')) "ccccx" ~?= Right ("cccc", "x"),
+        "full consumption" ~: parse (listP (char 'c')) "ccc" ~?= Right ("ccc", ""),
+        "empty input" ~: parse (listP (char 'c')) "" ~?= Right ([], "")
+      ]
 
 valueP :: LuParser Value
-valueP = undefined
+valueP = intValP `orP` boolValP `orP` stringValP `orP` nilValP
   where
     intValP :: LuParser Value
-    intValP = undefined
+    intValP = fmap IntVal intP
 
     boolValP :: LuParser Value
-    boolValP = undefined
+    boolValP = fmap BoolVal (keywordP "True" True `orP` keywordP "False" False)
 
     nilValP :: LuParser Value
-    nilValP = undefined
+    nilValP = keywordP "nil" NilVal
 
     stringValP :: LuParser Value
-    stringValP = undefined
+    stringValP = fmap StringVal (betweenP (char '"') (listP (charWhere (/= '"'))) (char '"'))
+
+testValueP :: Test
+testValueP =
+  "valueP"
+    ~: TestList
+      [ "int positive" ~: parse valueP "42rest" ~?= Right (IntVal 42, "rest"),
+        "int negative" ~: parse valueP "-5" ~?= Right (IntVal (-5), ""),
+        "bool true" ~: parse valueP "True" ~?= Right (BoolVal True, ""),
+        "bool false" ~: parse valueP "Falserest" ~?= Right (BoolVal False, "rest"),
+        "nil" ~: parse valueP "nil" ~?= Right (NilVal, ""),
+        "nil with remainder" ~: parse valueP "nilrest" ~?= Right (NilVal, "rest"),
+        "string" ~: parse valueP "\"hello\"" ~?= Right (StringVal "hello", ""),
+        "string empty" ~: parse valueP "\"\"rest" ~?= Right (StringVal "", "rest")
+      ]
 
 {-
 Exercise 3
@@ -101,13 +148,101 @@ you write more than that, but two is the minimum.) Add all tests to `main`.
 -}
 
 expP :: LuParser Expression
-expP = undefined
+expP = valP `orP` op1P `orP` op2P
+  where
+    valP :: LuParser Expression
+    valP = fmap Val valueP
+
+    op1P :: LuParser Expression
+    op1P = do
+      uop <- uopP
+      exp <- parens expP
+      return (Op1 uop exp)
+
+    op2P :: LuParser Expression
+    op2P = do
+      exp1 <- parens expP
+      char ' '
+      bop <- bopP
+      char ' '
+      exp2 <- parens expP
+      return (Op2 exp1 bop exp2)
 
 uopP :: LuParser Uop
-uopP = undefined
+uopP = negP `orP` notP `orP` lenP
+  where
+    negP :: LuParser Uop
+    negP = keywordP "-" Neg
+
+    notP :: LuParser Uop
+    notP = keywordP "not" Not
+
+    lenP :: LuParser Uop
+    lenP = keywordP "#" Len
 
 bopP :: LuParser Bop
-bopP = undefined
+bopP =
+  keywordP ">=" Ge
+    `orP` keywordP "<=" Le
+    `orP` keywordP "==" Eq
+    `orP` keywordP "//" Divide
+    `orP` keywordP ".." Concat
+    `orP` keywordP "+" Plus
+    `orP` keywordP "-" Minus
+    `orP` keywordP "*" Times
+    `orP` keywordP ">" Gt
+    `orP` keywordP "<" Lt
+
+testExpP :: Test
+testExpP =
+  "expP"
+    ~: TestList
+      [ "val int" ~: parse expP "42" ~?= Right (Val (IntVal 42), ""),
+        "val string" ~: parse expP "\"hello\"" ~?= Right (Val (StringVal "hello"), ""),
+        "op1 neg" ~: parse expP "-(5)" ~?= Right (Op1 Neg (Val (IntVal 5)), ""),
+        "op1 not" ~: parse expP "not(True)" ~?= Right (Op1 Not (Val (BoolVal True)), ""),
+        "op2 plus" ~: parse expP "(3) + (4)" ~?= Right (Op2 (Val (IntVal 3)) Plus (Val (IntVal 4)), ""),
+        "op2 concat" ~: parse expP "(\"hi\") .. (\"there\")" ~?= Right (Op2 (Val (StringVal "hi")) Concat (Val (StringVal "there")), ""),
+        "nested op1 of op2" ~: parse expP "-((3) + (4))" ~?= Right (Op1 Neg (Op2 (Val (IntVal 3)) Plus (Val (IntVal 4))), ""),
+        "nested op2 of op1" ~: parse expP "(-(3)) + (4)" ~?= Right (Op2 (Op1 Neg (Val (IntVal 3))) Plus (Val (IntVal 4)), ""),
+        "roundtrip op2 nested" ~: let e = Op2 (Op1 Neg (Val (IntVal 3))) Plus (Val (IntVal 4)) in parse expP (show e) ~?= Right (e, ""),
+        "roundtrip op1 of op2" ~: let e = Op1 Not (Op2 (Val (BoolVal True)) Eq (Val (BoolVal False))) in parse expP (show e) ~?= Right (e, "")
+      ]
+
+testUopP :: Test
+testUopP =
+  "uopP"
+    ~: TestList
+      [ "neg" ~: parse uopP "-" ~?= Right (Neg, ""),
+        "neg with remainder" ~: parse uopP "-(x)" ~?= Right (Neg, "(x)"),
+        "not" ~: parse uopP "not" ~?= Right (Not, ""),
+        "not with remainder" ~: parse uopP "not(x)" ~?= Right (Not, "(x)"),
+        "len" ~: parse uopP "#" ~?= Right (Len, ""),
+        "len with remainder" ~: parse uopP "#(x)" ~?= Right (Len, "(x)"),
+        "invalid" ~: parse uopP "+" ~?= Left "Predicate failed on: '+'"
+      ]
+
+testBopP :: Test
+testBopP =
+  "bopP"
+    ~: TestList
+      [ "plus" ~: parse bopP "+" ~?= Right (Plus, ""),
+        "plus remainder" ~: parse bopP "+ " ~?= Right (Plus, " "),
+        "minus" ~: parse bopP "-" ~?= Right (Minus, ""),
+        "minus remainder" ~: parse bopP "- " ~?= Right (Minus, " "),
+        "times" ~: parse bopP "*" ~?= Right (Times, ""),
+        "times remainder" ~: parse bopP "* " ~?= Right (Times, " "),
+        "divide" ~: parse bopP "//" ~?= Right (Divide, ""),
+        "divide remainder" ~: parse bopP "//x" ~?= Right (Divide, "x"),
+        "eq" ~: parse bopP "==" ~?= Right (Eq, ""),
+        "eq remainder" ~: parse bopP "==x" ~?= Right (Eq, "x"),
+        "gt" ~: parse bopP ">" ~?= Right (Gt, ""),
+        "ge before gt" ~: parse bopP ">=" ~?= Right (Ge, ""),
+        "lt" ~: parse bopP "<" ~?= Right (Lt, ""),
+        "le before lt" ~: parse bopP "<=" ~?= Right (Le, ""),
+        "concat" ~: parse bopP ".." ~?= Right (Concat, ""),
+        "concat remainder" ~: parse bopP "..x" ~?= Right (Concat, "x")
+      ]
 
 {-
 Exercise 4
@@ -123,10 +258,56 @@ you will need to provide a file with a Lu Statement.)
 -}
 
 statementP :: LuParser Statement
-statementP = undefined
+statementP = ifP `orP` fmap Return expP
+  where
+    ifP :: LuParser Statement
+    ifP = do
+      string "if "
+      cond <- parens expP
+      string " then "
+      st1 <- parens statementP
+      string " else "
+      st2 <- parens statementP
+      return $ If cond st1 st2
 
 parseLuFile :: String -> IO (Either LuParseError Statement)
-parseLuFile = undefined
+parseLuFile = parseAllFromFile statementP
+
+testStatementP :: Test
+testStatementP =
+  "statementP"
+    ~: TestList
+      [ "return int" ~: parse statementP "42" ~?= Right (Return (Val (IntVal 42)), ""),
+        "return expr" ~: parse statementP "(3) + (4)" ~?= Right (Return (Op2 (Val (IntVal 3)) Plus (Val (IntVal 4))), ""),
+        "if simple" ~: parse statementP "if (True) then (1) else (2)" ~?= Right (If (Val (BoolVal True)) (Return (Val (IntVal 1))) (Return (Val (IntVal 2))), ""),
+        "if nested" ~: parse statementP "if ((1) < (2)) then (True) else (False)" ~?= Right (If (Op2 (Val (IntVal 1)) Lt (Val (IntVal 2))) (Return (Val (BoolVal True))) (Return (Val (BoolVal False))), ""),
+        "roundtrip return" ~: let s = Return (Op1 Neg (Val (IntVal 5))) in parse statementP (show s) ~?= Right (s, ""),
+        "roundtrip if" ~: let s = If (Val (BoolVal True)) (Return (Val (IntVal 0))) (Return (Val (IntVal 1))) in parse statementP (show s) ~?= Right (s, "")
+      ]
+
+testParseLuFile :: IO Test
+testParseLuFile = do
+  simple <- parseLuFile "testFiles/statement.txt"
+  arith <- parseLuFile "testFiles/complex_arith.txt"
+  negs <- parseLuFile "testFiles/negations.txt"
+  boolComp <- parseLuFile "testFiles/bool_comparison.txt"
+  strConc <- parseLuFile "testFiles/string_concat.txt"
+  nilVal <- parseLuFile "testFiles/nil_val.txt"
+  lenCheck <- parseLuFile "testFiles/len_check.txt"
+  notCheck <- parseLuFile "testFiles/not_check.txt"
+  failure <- parseLuFile "testFiles/nonexistent.txt"
+  return $
+    TestList
+      [ "simple int" ~: simple ~?= Right (Return (Val (IntVal 42))),
+        "complex arith" ~: arith ~?= Right (Return (Op2 (Op2 (Op2 (Val (IntVal 1)) Plus (Val (IntVal 2))) Times (Op2 (Val (IntVal 3)) Minus (Val (IntVal 4)))) Divide (Op2 (Op2 (Val (IntVal 5)) Plus (Val (IntVal 6))) Times (Op2 (Val (IntVal 7)) Minus (Val (IntVal 8)))))),
+        "negations" ~: negs ~?= Right (Return (Op2 (Op2 (Op2 (Op1 Neg (Val (IntVal 1))) Plus (Op1 Neg (Val (IntVal 2)))) Times (Op2 (Op1 Neg (Val (IntVal 3))) Plus (Op1 Neg (Val (IntVal 4))))) Plus (Op2 (Op2 (Op1 Neg (Val (IntVal 5))) Times (Val (IntVal 6))) Minus (Op2 (Val (IntVal 7)) Times (Op1 Neg (Val (IntVal 8))))))),
+        "bool comparison" ~: boolComp ~?= Right (If (Op2 (Val (IntVal 1)) Lt (Val (IntVal 3))) (Return (Val (BoolVal True))) (Return (Val (BoolVal False)))),
+        "string concat" ~: strConc ~?= Right (Return (Op2 (Op2 (Val (StringVal "hello")) Concat (Val (StringVal " world"))) Concat (Val (StringVal "!")))),
+        "nil val" ~: nilVal ~?= Right (If (Op2 (Val (IntVal 5)) Ge (Val (IntVal 3))) (Return (Val NilVal)) (Return (Val (BoolVal False)))),
+        "len check" ~: lenCheck ~?= Right (If (Op2 (Op1 Len (Val (StringVal "hello"))) Gt (Val (IntVal 3))) (Return (Val (BoolVal True))) (Return (Val NilVal))),
+        "not as or" ~: notCheck ~?= Right (If (Op1 Not (Val (BoolVal True))) (Return (Val (BoolVal True))) (Return (Op1 Not (Val (BoolVal False))))),
+        "failure" ~: failure ~?= Left "testFiles/nonexistent.txt: openFile: does not exist (No such file or directory)"
+      ]
 
 ---- end of exercises ----
 
@@ -137,10 +318,10 @@ far, not necessarily from this week.
 -}
 
 time :: Double
-time = undefined
+time = 2.5
 
 question :: String
-question = undefined
+question = "are parsers in other languages also this hard to implement? ;-;"
 
 check :: Test
 check =
@@ -154,10 +335,20 @@ check =
 
 main :: IO ()
 main = do
+  fileTests <- testParseLuFile
   _ <-
     runTestTT $
       TestList
-        [ check
+        [ check,
+          testKeywordP,
+          testParens,
+          testListP,
+          testValueP,
+          testExpP,
+          testUopP,
+          testBopP,
+          testStatementP,
+          fileTests
         ]
   return ()
 
@@ -171,17 +362,84 @@ Definitions needed for intP have been stubbed.
 
 -}
 
-instance Functor LuParser
+instance Functor LuParser where
+  fmap :: (a -> b) -> LuParser a -> LuParser b
+  fmap f p = LuParser $ \s -> fmap (\(out, rem) -> (f out, rem)) (parse p s)
 
-instance Applicative LuParser
+instance Applicative LuParser where
+  pure :: a -> LuParser a
+  pure output = LuParser $ \s -> Right (output, s)
 
-instance Monad LuParser
+  (<*>) :: LuParser (a -> b) -> LuParser a -> LuParser b
+  p1 <*> p2 = LuParser $ \s -> case parse p1 s of
+    Left e -> Left e
+    Right (f, s') -> case parse p2 s' of
+      Left e' -> Left e'
+      Right (v, s'') -> Right (f v, s'')
 
-char = undefined
+instance Monad LuParser where
+  return :: a -> LuParser a
+  return = pure
 
-digit = undefined
+  (>>=) :: LuParser a -> (a -> LuParser b) -> LuParser b
+  p >>= func = LuParser $ \s -> case parse p s of
+    Left err_str -> Left err_str
+    Right (result, rem_string) -> parse (func result) rem_string
 
-orP = undefined
+filterParse :: (Show a) => (a -> Bool) -> LuParser a -> LuParser a
+filterParse func p = LuParser $ \s -> do
+  (out, rem) <- parse p s
+  if func out
+    then return (out, rem)
+    else Left ("Predicate failed on: " ++ show out)
+
+charWhere :: (Char -> Bool) -> LuParser Char
+charWhere func = LuParser $ \s -> case s of
+  [] -> Left "No characters left."
+  (x : xs) -> if func x then Right (x, xs) else Left ("Predicate failed on: " ++ show x)
+
+char :: Char -> LuParser Char
+char c = charWhere (== c)
+
+string :: String -> LuParser String
+string = mapM char
+
+digit :: LuParser Char
+digit = charWhere isDigit
+
+orP :: LuParser a -> LuParser a -> LuParser a
+orP parser1 parser2 = LuParser $ \s -> case parse parser1 s of
+  Left err_str -> parse parser2 s
+  Right output -> Right output
+
+eof :: LuParser ()
+eof = LuParser $ \s -> case s of
+  [] -> Right ((), s)
+  x : xs -> Left "Not yet end of file. "
+
+betweenP :: LuParser a -> LuParser b -> LuParser c -> LuParser b
+betweenP p1 p2 p3 = do
+  _ <- p1
+  o2 <- p2
+  _ <- p3
+  return o2
+
+parseAll :: LuParser a -> LuParser a
+parseAll p = betweenP (pure ()) p eof
+
+parseAllFromFile :: LuParser a -> String -> IO (Either LuParseError a)
+parseAllFromFile p filename = catchIOError (action p) handler
+  where
+    -- read from file and parse
+    action :: LuParser b -> IO (Either LuParseError b)
+    action p =
+      readFile filename >>= \s -> case parse (parseAll p) s of
+        Left error -> return (Left error)
+        Right (b, rem) -> return (Right b)
+
+    -- handle I/O exceptions
+    handler :: IOError -> IO (Either LuParseError a)
+    handler err = return (Left (show err))
 
 -- int parser
 
@@ -214,13 +472,24 @@ data Value
   | IntVal Int
   | BoolVal Bool
   | StringVal String
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show Value where
+  show NilVal = "nil"
+  show (IntVal x) = show x
+  show (BoolVal x) = show x
+  show (StringVal x) = show x
 
 data Uop
   = Neg
   | Not
   | Len
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Uop where
+  show Neg = "-"
+  show Not = "not"
+  show Len = "#"
 
 data Bop
   = Plus
@@ -233,15 +502,36 @@ data Bop
   | Lt
   | Le
   | Concat
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Bop where
+  show Plus = "+"
+  show Minus = "-"
+  show Times = "*"
+  show Divide = "//"
+  show Gt = ">"
+  show Ge = ">="
+  show Lt = "<"
+  show Le = "<="
+  show Eq = "=="
+  show Concat = ".."
 
 data Expression
   = Val Value
   | Op1 Uop Expression
   | Op2 Expression Bop Expression
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Expression where
+  show (Val value) = show value
+  show (Op1 uop exp) = show uop ++ "(" ++ show exp ++ ")"
+  show (Op2 exp1 bop exp2) = "(" ++ show exp1 ++ ") " ++ show bop ++ " (" ++ show exp2 ++ ")"
 
 data Statement
   = If Expression Statement Statement
   | Return Expression
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Statement where
+  show (If exp st1 st2) = "if (" ++ show exp ++ ") then (" ++ show st1 ++ ") else (" ++ show st2 ++ ")"
+  show (Return st) = show st
