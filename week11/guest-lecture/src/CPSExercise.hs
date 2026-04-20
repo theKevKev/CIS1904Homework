@@ -52,8 +52,8 @@ main =
 
 -- implement subtraction, CPS style
 subtractCPS :: Int -> Int -> (Int -> r) -> r
-subtractCPS = undefined
+subtractCPS x y f = f (x - y)
 
 -- combine addCPS and subtractCPS to compute (3 + 4) - 2
 exampleAddSubtract :: (Int -> r) -> r
-exampleAddSubtract k = undefined
+exampleAddSubtract k = addCPS 3 4 $ \sum -> subtractCPS sum 2 $ \res -> k res

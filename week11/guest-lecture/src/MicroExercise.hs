@@ -2,9 +2,9 @@ module MicroExercise where
 
 import Control.Monad (foldM, replicateM, zipWithM)
 import Data.List (foldl', transpose)
-import qualified Data.Map as Map
-import qualified Data.Map.Strict as MapS
-import qualified Data.Set as Set
+import Data.Map qualified as Map
+import Data.Map.Strict qualified as MapS
+import Data.Set qualified as Set
 import Data.Vector.Unboxed (fromList)
 import System.Random.MWC
 import System.Random.MWC.Distributions (normal)
@@ -143,7 +143,7 @@ expV a = do
   let result = exp (valueData a)
   return $ Value i result [a] [result]
 
-{- Exercise 1  
+{- Exercise 1
 
    ReLU is a simple activation function used in neural networks.
    Formula:  relu(a) = max(0, a)
@@ -160,7 +160,10 @@ expV a = do
    Useful functions: freshID, valueData, max
 -}
 reluV :: Value -> Trace Value
-reluV = undefined
+reluV a = do
+  i <- freshID
+  let result = max 0 (valueData a)
+  return $ Value i result [a] [if a > 0 then 1 else 0]
 
 {- negV: negation.  result = -a
 -}
@@ -182,8 +185,7 @@ divV a b = do reciprocal <- powV b (-1); mulV a reciprocal
 -- Backpropagation
 -- ============================================================
 
-
-{- Exercise 2 
+{- Exercise 2
 
 Topological sort via DFS post-order.
 Returns the nodes reachable from 'v' in dependency-first order,
@@ -207,7 +209,14 @@ topologicalSort :: Set.Set Int -> Value -> ([Value], Set.Set Int)
                 (children v) -- list we're iterating over
          in _todo4  -- where does the current node go?
 -}
-topologicalSort = undefined
+-- topologicalSort visited v =
+--   | Set.member (valueId v) visited = ([], visited)
+--   | otherwise =
+--       let (childTopo, visited') =
+--         foldl (\(acc, vis) child -> )
+--         []
+--         (children v)
+--       in
 
 {- computeGradients: reverse-mode automatic differentiation (backpropagation).
 
@@ -336,7 +345,11 @@ initializeLayer dim layerIndex = do
    Useful functions: mapM, zipWithM, foldM, mulV, addV
 -}
 linear :: [Value] -> [[Value]] -> Trace [Value]
-linear = undefined
+linear input weights = mapM dotProduct weights
+  where
+    dotProduct row = do
+      products <- zipWithM mulV row input
+      foldM addV (head products) (tailProducts)
 
 {- Exercise 4: rmsNorm (Root Mean Square Layer Normalization)
 
