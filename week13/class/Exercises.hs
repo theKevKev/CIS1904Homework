@@ -120,15 +120,4 @@ https://tyche-pbt.github.io/tyche-extension/
 Challenge: Write a generator for binary search trees.
 -}
 genBST :: (Int, Int) -> Gen (Tree Int)
-genBST (lo, hi) | lo > hi = return Leaf
-genBST (lo, hi) =
-  frequency
-    [ (1, return Leaf),
-      ( 3,
-        do
-          x <- choose (lo, hi)
-          l <- genBST (lo, x - 1)
-          r <- genBST (x + 1, hi)
-          return (Node l x r)
-      )
-    ]
+genBST (lo, hi) = undefined
