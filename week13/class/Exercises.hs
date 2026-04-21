@@ -25,6 +25,13 @@ your generator's output.
 Optional extra exercise: Write a generator of Ints that always outputs 4.
 -}
 
+instance (Arbitrary a, Arbitrary b) => Arbitrary (Pair a b) where
+  arbitrary :: Gen (Pair a b)
+  arbitrary = do
+    first <- arbitrary
+    second <- arbitrary
+    return $ Pair first second
+
 data CardinalDirection
   = North
   | East
@@ -38,6 +45,10 @@ Exercise: Write an Arbitrary instance for CardinalDirection.
 (For now, you do not need to implement shrink, just arbitrary.)
 -}
 
+instance Arbitrary CardinalDirection where
+  arbitrary :: Gen CardinalDirection
+  arbitrary = elements [North, East, South, West]
+
 data Tree a
   = Leaf
   | Node (Tree a) a (Tree a)
@@ -50,11 +61,33 @@ Arbitrary.
 (For now, you do not need to implement shrink, just arbitrary.)
 -}
 
+-- instance (Arbitrary a) => Arbitrary (Tree a) where
+--   arbitrary :: Gen (Tree a)
+--   arbitrary = oneof [genleaf, gennode]
+--     where
+--       genleaf = return Leaf
+--       gennode = do
+--         l <- arbitrary
+--         x <- arbitrary
+--         r <- arbitrary
+--         return $ Node l x r
+
 {-
 Exercise: Improve the Arbitrary instance for Tree a using `frequency`.
 
 (For now, you do not need to implement shrink, just arbitrary.)
 -}
+
+-- instance (Arbitrary a) => Arbitrary (Tree a) where
+--   arbitrary :: Gen (Tree a)
+--   arbitrary = frequency [(1, genleaf), (3, gennode)]
+--     where
+--       genleaf = return Leaf
+--       gennode = do
+--         l <- arbitrary
+--         x <- arbitrary
+--         r <- arbitrary
+--         return $ Node l x r
 
 {-
 Exercise: Improve the Arbitrary instance for Tree a using `sized`.
@@ -62,11 +95,19 @@ Exercise: Improve the Arbitrary instance for Tree a using `sized`.
 (For now, you do not need to implement shrink, just arbitrary.)
 -}
 
-{-
-Exercise: Improve the Arbitrary instance for Tree a using `frequency`.
-
-(For now, you do not need to implement shrink, just arbitrary.)
--}
+-- instance (Arbitrary a) => Arbitrary (Tree a) where
+--   arbitrary :: Gen (Tree a)
+--   arbitrary = sized genTree
+--     where
+--       genTree n | n <= 0 = return Leaf
+--       genTree n = frequency [(1, genleaf), (3, gennode n)]
+--         where
+--           genleaf = return Leaf
+--           gennode n = do
+--             l <- genTree (n - 1)
+--             x <- arbitrary
+--             r <- genTree (n - 1)
+--             return $ Node l x r
 
 {-
 Exercise: Write shrink for Pair a b.
@@ -79,6 +120,27 @@ are not going to implement for this exercise.)
 Exercise: Write shrink for Tree a.
 Do not use `subterms` or `recursivelyShrink`.
 -}
+
+instance (Arbitrary a) => Arbitrary (Tree a) where
+  arbitrary :: Gen (Tree a)
+  arbitrary = sized genTree
+    where
+      genTree n | n <= 0 = return Leaf
+      genTree n = frequency [(1, genleaf), (3, gennode n)]
+        where
+          genleaf = return Leaf
+          gennode n = do
+            l <- genTree (n - 1)
+            x <- arbitrary
+            r <- genTree (n - 1)
+            return $ Node l x r
+
+  shrink :: Tree a -> [Tree a]
+  shrink Leaf = []
+  shrink (Node l x r) =
+    Leaf : [l, r] ++ do
+      (l', x', r') <- shrink (l, x, r)
+      return $ Node l' x' r'
 
 allTree :: (a -> Bool) -> Tree a -> Bool
 allTree _ Leaf = True
@@ -120,4 +182,12 @@ https://tyche-pbt.github.io/tyche-extension/
 Challenge: Write a generator for binary search trees.
 -}
 genBST :: (Int, Int) -> Gen (Tree Int)
-genBST (lo, hi) = undefined
+genBST (lo, hi) | lo > hi = return Leaf
+genBST (lo, hi) = frequency [(1, genleaf), (3, gennode)]
+  where
+    genleaf = return Leaf
+    gennode = do
+      x <- choose (lo, hi)
+      l <- genBST (lo, x - 1)
+      r <- genBST (x + 1, hi)
+      return $ Node l x r
