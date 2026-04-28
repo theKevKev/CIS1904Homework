@@ -1,123 +1,47 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE InstanceSigs #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
+{-# HLINT ignore "Use lambda" #-}
+{-# HLINT ignore "Use lambda-case" #-}
 module Exercises where
 
-import GHC.Base
-import GHC.Float
-import GHC.Generics (Generic)
-import Generic.Random
-import Test.QuickCheck
-import Tyche
-
-data Pair a b = Pair a b
-  deriving (Eq, Show)
+import Control.Monad.Identity (Identity)
 
 {-
-Exercise: Write an Arbitrary instance for Pair a b, assuming a and b are
-instances of Arbitrary.
+There are standard library versions of these in Control.Monad.State and
+Control.Monad.Trans, but we will use our own definitions for now.
 
-(For now, you do not need to implement shrink, just arbitrary.)
-
-Note: You can run `sample (arbitrary :: Gen (Pair Int Bool))` to get a sense of
-your generator's output.
-
-Optional extra exercise: Write a generator of Ints that always outputs 4.
+Note: EitherT is also called ExceptT in the standard library. These are
+equivalent, just defined in different modules.
 -}
+newtype State s a = MkState {runState :: s -> (a, s)}
 
-data CardinalDirection
-  = North
-  | East
-  | South
-  | West
-  deriving (Eq, Show)
+newtype StateT s m a = MkStateT {runStateT :: s -> m (a, s)}
+
+newtype EitherT e m a = MkEitherT {runEitherT :: m (Either e a)}
+
+type ParserError = String
+
+-- type Parser a =
+
+-- type Parser' a =
+
+-- char :: Char -> Parser Char
+-- char c = MkStateT $ \s -> case s of
+--   (c' : cs) ->
+--     if c' == c
+--       then return (c, cs)
+--       else Left $ "Cannot parse " ++ [c'] ++ " as " ++ [c] ++ "."
+--   [] -> Left $ "Cannot parse empty string as " ++ [c] ++ "."
+
+-- type State' s a =
 
 {-
-Exercise: Write an Arbitrary instance for CardinalDirection.
+Bonus exercises (each has a standard library definition you can check against):
 
-(For now, you do not need to implement shrink, just arbitrary.)
+1. Define MaybeT.
+2. Define a typeclass MonadError capturing the idea of what it means for a
+    monad (Either a, EitherT e m, etc.) to model error behavior.
+3. Define a typeclass MonadState capturing the idea of what it means for a
+    monad (State s, StateT s m, etc.) to model error behavior.
+4. Write instance declarations for the typeclasses in 2 & 3.
 -}
-
-data Tree a
-  = Leaf
-  | Node (Tree a) a (Tree a)
-  deriving (Eq, Show, Generic)
-
-{-
-Exercise: Write an Arbitrary instance for Tree a, assuming a is an instance of
-Arbitrary.
-
-(For now, you do not need to implement shrink, just arbitrary.)
--}
-
-{-
-Exercise: Improve the Arbitrary instance for Tree a using `frequency`.
-
-(For now, you do not need to implement shrink, just arbitrary.)
--}
-
-{-
-Exercise: Improve the Arbitrary instance for Tree a using `sized`.
-
-(For now, you do not need to implement shrink, just arbitrary.)
--}
-
-{-
-Exercise: Improve the Arbitrary instance for Tree a using `frequency`.
-
-(For now, you do not need to implement shrink, just arbitrary.)
--}
-
-{-
-Exercise: Write shrink for Pair a b.
-
-Do not use `subterms` or `recursivelyShrink`. (They require typeclasses that we
-are not going to implement for this exercise.)
--}
-
-{-
-Exercise: Write shrink for Tree a.
-Do not use `subterms` or `recursivelyShrink`.
--}
-
-allTree :: (a -> Bool) -> Tree a -> Bool
-allTree _ Leaf = True
-allTree p (Node l x r) = p x && allTree p l && allTree p r
-
-insertBST :: Int -> Tree Int -> Tree Int
-insertBST x Leaf = Node Leaf x Leaf
-insertBST x (Node l y r)
-  | x < y = Node (insertBST x l) y r
-  | x > y = Node l y (insertBST x r)
-  | otherwise = Node l y r
-
-member :: (Eq a) => a -> Tree a -> Bool
-member _ Leaf = False
-member x (Node l y r) = x == y || member x l || member x r
-
-isBST :: Tree Int -> Bool
-isBST Leaf = True
-isBST (Node l x r) = allTree (< x) l && allTree (> x) r && isBST l && isBST r
-
-sizeTree :: Tree a -> Int
-sizeTree Leaf = 0
-sizeTree (Node l _ r) = 1 + sizeTree l + sizeTree r
-
-prop_insertPost :: Int -> Tree Int -> Property
-prop_insertPost x t =
-  Tyche.visualize "prop_insert_post" $
-    labelNumber "size" (sizeTree t) $
-      labelNumber "value" x $
-        labelCategory "isLeaf" (show (t == Leaf)) $
-          isBST t ==>
-            member x (insertBST x t)
-
-{-
-https://tyche-pbt.github.io/tyche-extension/
--}
-
-{-
-Challenge: Write a generator for binary search trees.
--}
-genBST :: (Int, Int) -> Gen (Tree Int)
-genBST (lo, hi) = undefined
